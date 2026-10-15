@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.gridsettlement</groupId>
+        <groupId>com.builtbyjuls</groupId>
         <artifactId>spring-ai-nplus1-test-gate</artifactId>
         <version>0.0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
@@ -23,7 +23,15 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -33,7 +41,7 @@
 
         <!-- Test dependencies -->
         <dependency>
-            <groupId>com.gridsettlement</groupId>
+            <groupId>com.builtbyjuls</groupId>
             <artifactId>nplus1-ai-gate-starter</artifactId>
             <scope>test</scope>
         </dependency>

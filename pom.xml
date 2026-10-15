@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.gridsettlement</groupId>
+    <groupId>com.builtbyjuls</groupId>
     <artifactId>spring-ai-nplus1-test-gate</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -48,7 +48,7 @@
                 <scope>import</scope>
             </dependency>
             <dependency>
-                <groupId>com.gridsettlement</groupId>
+                <groupId>com.builtbyjuls</groupId>
                 <artifactId>nplus1-ai-gate-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>
