@@ -3,11 +3,15 @@ package com.example.grid;
 import com.example.grid.domain.ContractDeclaration;
 import com.example.grid.domain.DeclarationStatus;
 import com.example.grid.domain.IntervalQuantity;
+import com.example.grid.domain.MeterReadingHeader;
 import com.example.grid.fixture.GridDataSeeder;
 import com.example.grid.repository.ContractDeclarationRepository;
 import com.example.grid.repository.DailyVolumeAuditDto;
+import com.example.grid.repository.MeterReadingHeaderRepository;
 import com.example.grid.repository.ParticipantSummaryDto;
 import com.example.grid.service.GridDailySettlementService;
+import com.gridsettlement.gate.analyzer.QueryAnalyzer;
+import com.gridsettlement.gate.analyzer.QueryGroup;
 import com.gridsettlement.gate.annotation.EnableNPlusOneAiGate;
 import com.gridsettlement.gate.interceptor.NPlusOneGateScope;
 import com.gridsettlement.gate.interceptor.RecordedQuery;
@@ -46,9 +50,13 @@ class GridSettlementDomainTest extends PostgreSqlTestContainerBase {
     @Autowired
     private ContractDeclarationRepository declarationRepository;
 
+    @Autowired
+    private MeterReadingHeaderRepository meterHeaderRepository;
+
     @BeforeAll
     void setUpTestData() {
         dataSeeder.seedDeclarations(TRADING_DATE, GridDataSeeder.DEFAULT_CONTRACT_COUNT);
+        dataSeeder.seedMeterReadings(TRADING_DATE, GridDataSeeder.DEFAULT_CONTRACT_COUNT);
     }
 
     @BeforeEach
@@ -129,5 +137,45 @@ class GridSettlementDomainTest extends PostgreSqlTestContainerBase {
 
         // Exactly 1 single query executed
         assertThat(optimizedQueries).hasSize(1);
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("Scenario C: Optimized baselines and @BatchSize pass the AI test gate cleanly")
+    void scenarioC_shouldDemonstrateOptimizedBaselineAndBatchSizePassGateCleanly() {
+        // 1. Optimized Scenario A executes exactly 1 query
+        NPlusOneGateScope.reset();
+        List<ParticipantSummaryDto> summary = settlementService.buildParticipantSummaryOptimized(TRADING_DATE);
+        assertThat(summary).hasSize(GridDataSeeder.DEFAULT_CONTRACT_COUNT);
+        assertThat(NPlusOneGateScope.getRecordedQueries()).hasSize(1);
+
+        // 2. Optimized Scenario B executes exactly 1 query
+        NPlusOneGateScope.reset();
+        List<DailyVolumeAuditDto> audit = settlementService.buildDailyVolumeAuditOptimized(TRADING_DATE);
+        assertThat(audit).hasSize(GridDataSeeder.DEFAULT_CONTRACT_COUNT);
+        assertThat(NPlusOneGateScope.getRecordedQueries()).hasSize(1);
+
+        // 3. BatchSize(size = 20) collection fetch executes queries with batchFetchQueue == true
+        NPlusOneGateScope.reset();
+        List<MeterReadingHeader> headers = meterHeaderRepository.findByReadingDate(TRADING_DATE);
+        assertThat(headers).hasSize(GridDataSeeder.DEFAULT_CONTRACT_COUNT);
+
+        int totalReadings = 0;
+        for (MeterReadingHeader header : headers) {
+            totalReadings += header.getReadings().size();
+        }
+        assertThat(totalReadings).isEqualTo(GridDataSeeder.DEFAULT_CONTRACT_COUNT * 5);
+
+        List<RecordedQuery> batchQueries = NPlusOneGateScope.getRecordedQueries();
+        assertThat(batchQueries).isNotEmpty();
+
+        // Verify that BatchFetchQueue was detected in the collection loading query stack
+        boolean hasBatchFetch = batchQueries.stream().anyMatch(RecordedQuery::batchFetchQueue);
+        assertThat(hasBatchFetch).isTrue();
+
+        // Verify that QueryAnalyzer drops all batchFetchQueue queries (0 violations even at threshold 1)
+        QueryAnalyzer analyzer = new QueryAnalyzer();
+        List<QueryGroup> violations = analyzer.analyze(batchQueries, 1, "com.example.grid");
+        assertThat(violations).isEmpty();
     }
 }

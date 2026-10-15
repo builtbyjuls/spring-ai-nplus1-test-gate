@@ -1,6 +1,8 @@
 package com.example.grid;
 
+import com.example.grid.domain.MeterReadingHeader;
 import com.example.grid.fixture.GridDataSeeder;
+import com.example.grid.repository.MeterReadingHeaderRepository;
 import com.example.grid.service.GridDailySettlementService;
 import com.gridsettlement.gate.ai.NPlusOneAiDiagnosisService;
 import com.gridsettlement.gate.ai.model.NPlusOneDiagnosis;
@@ -22,6 +24,7 @@ import org.springframework.test.context.TestContext;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,6 +48,9 @@ class NPlusOneAiDiagnosisIntegrationTest extends PostgreSqlTestContainerBase {
     private GridDailySettlementService settlementService;
 
     @Autowired
+    private MeterReadingHeaderRepository meterHeaderRepository;
+
+    @Autowired
     private ApplicationContext applicationContext;
 
     @Autowired
@@ -58,6 +64,7 @@ class NPlusOneAiDiagnosisIntegrationTest extends PostgreSqlTestContainerBase {
     @BeforeAll
     void setUpTestData() {
         dataSeeder.seedDeclarations(TRADING_DATE, GridDataSeeder.DEFAULT_CONTRACT_COUNT);
+        dataSeeder.seedMeterReadings(TRADING_DATE, GridDataSeeder.DEFAULT_CONTRACT_COUNT);
     }
 
     @BeforeEach
@@ -138,11 +145,41 @@ class NPlusOneAiDiagnosisIntegrationTest extends PostgreSqlTestContainerBase {
         assertThat(retrieved.get().fixType()).isEqualTo("ENTITY_GRAPH");
     }
 
+    @Test
+    @Transactional
+    @DisplayName("Scenario C: Refactored queries and @BatchSize pass test gate without violations or LLM calls")
+    void scenarioC_shouldPassGateWithoutViolationsOrLlmCalls() {
+        // Run optimized methods and @BatchSize loop
+        settlementService.buildParticipantSummaryOptimized(TRADING_DATE);
+        settlementService.buildDailyVolumeAuditOptimized(TRADING_DATE);
+
+        List<MeterReadingHeader> headers = meterHeaderRepository.findByReadingDate(TRADING_DATE);
+        for (MeterReadingHeader header : headers) {
+            assertThat(header.getReadings()).isNotEmpty();
+        }
+
+        int cacheSizeBefore = cacheService.size();
+
+        TestContext mockTestContext = mock(TestContext.class);
+        when(mockTestContext.getApplicationContext()).thenReturn(applicationContext);
+        when(mockTestContext.getTestException()).thenReturn(null);
+        doReturn(SampleScenarioCTest.class).when(mockTestContext).getTestClass();
+
+        // Must NOT throw AssertionError and must NOT invoke AI diagnosis
+        listener.afterTestMethod(mockTestContext);
+
+        assertThat(cacheService.size()).isEqualTo(cacheSizeBefore);
+    }
+
     @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example.grid")
     private static class SampleScenarioATest {
     }
 
     @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example.grid")
     private static class SampleScenarioBTest {
+    }
+
+    @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example.grid")
+    private static class SampleScenarioCTest {
     }
 }

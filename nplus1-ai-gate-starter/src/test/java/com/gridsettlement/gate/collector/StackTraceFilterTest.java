@@ -65,4 +65,15 @@ class StackTraceFilterTest {
         assertThat(StackTraceFilter.isApplicationFrame(serviceClass, "")).isTrue();
         assertThat(StackTraceFilter.isApplicationFrame(serviceClass, null)).isTrue();
     }
+
+    @Test
+    @DisplayName("isBatchFetchMarker should detect BatchFetchQueue and BatchLoader markers")
+    void shouldDetectBatchFetchMarkers() {
+        assertThat(StackTraceFilter.isBatchFetchMarker("org.hibernate.engine.spi.BatchFetchQueue")).isTrue();
+        assertThat(StackTraceFilter.isBatchFetchMarker("org.hibernate.loader.ast.internal.CollectionBatchLoaderArrayParam")).isTrue();
+        assertThat(StackTraceFilter.isBatchFetchMarker("org.hibernate.loader.ast.internal.EntityBatchLoaderArrayParam")).isTrue();
+        assertThat(StackTraceFilter.isBatchFetchMarker("org.hibernate.loader.ast.spi.BatchLoader")).isTrue();
+        assertThat(StackTraceFilter.isBatchFetchMarker("org.hibernate.loader.ast.internal.SingleIdEntityLoaderStandardImpl")).isFalse();
+        assertThat(StackTraceFilter.isBatchFetchMarker("com.example.grid.service.GridDailySettlementService")).isFalse();
+    }
 }

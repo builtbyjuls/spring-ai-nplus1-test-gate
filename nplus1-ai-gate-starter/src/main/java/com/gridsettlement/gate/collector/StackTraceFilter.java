@@ -12,7 +12,10 @@ import java.util.Set;
  */
 public final class StackTraceFilter {
 
-    private static final String BATCH_FETCH_QUEUE_MARKER = "org.hibernate.engine.spi.BatchFetchQueue";
+    private static final List<String> BATCH_FETCH_MARKERS = List.of(
+            "org.hibernate.engine.spi.BatchFetchQueue",
+            "BatchLoader"
+    );
 
     private static final Set<String> IGNORED_PACKAGE_PREFIXES = Set.of(
             "java.",
@@ -73,7 +76,7 @@ public final class StackTraceFilter {
 
             frames.forEach(frame -> {
                 String className = frame.getClassName();
-                if (className.contains(BATCH_FETCH_QUEUE_MARKER)) {
+                if (isBatchFetchMarker(className)) {
                     isBatch[0] = true;
                 }
 
@@ -84,6 +87,15 @@ public final class StackTraceFilter {
 
             return new StackInspectionResult(List.copyOf(appFrames), isBatch[0]);
         });
+    }
+
+    static boolean isBatchFetchMarker(String className) {
+        for (String marker : BATCH_FETCH_MARKERS) {
+            if (className.contains(marker)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static boolean isApplicationFrame(String className, String basePackage) {

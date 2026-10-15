@@ -5,10 +5,13 @@ import com.example.grid.domain.ContractDeclaration;
 import com.example.grid.domain.DeclarationStatus;
 import com.example.grid.domain.IntervalQuantity;
 import com.example.grid.domain.MarketParticipant;
+import com.example.grid.domain.MeterIntervalReading;
+import com.example.grid.domain.MeterReadingHeader;
 import com.example.grid.domain.ParticipantRole;
 import com.example.grid.repository.BilateralContractRepository;
 import com.example.grid.repository.ContractDeclarationRepository;
 import com.example.grid.repository.MarketParticipantRepository;
+import com.example.grid.repository.MeterReadingHeaderRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +23,8 @@ import java.util.List;
 
 /**
  * Deterministic test data seeder modeling 20 bilateral contracts and declarations
- * across 288 daily 5-minute dispatch intervals (5,760 total interval records).
+ * across 288 daily 5-minute dispatch intervals (5,760 total interval records),
+ * as well as telemetry meter reading headers with batch size collections.
  */
 @Component
 public class GridDataSeeder {
@@ -31,15 +35,18 @@ public class GridDataSeeder {
     private final MarketParticipantRepository participantRepository;
     private final BilateralContractRepository contractRepository;
     private final ContractDeclarationRepository declarationRepository;
+    private final MeterReadingHeaderRepository meterHeaderRepository;
 
     public GridDataSeeder(
             MarketParticipantRepository participantRepository,
             BilateralContractRepository contractRepository,
-            ContractDeclarationRepository declarationRepository
+            ContractDeclarationRepository declarationRepository,
+            MeterReadingHeaderRepository meterHeaderRepository
     ) {
         this.participantRepository = participantRepository;
         this.contractRepository = contractRepository;
         this.declarationRepository = declarationRepository;
+        this.meterHeaderRepository = meterHeaderRepository;
     }
 
     @Transactional
@@ -104,5 +111,23 @@ public class GridDataSeeder {
         }
 
         return declarations;
+    }
+
+    @Transactional
+    public List<MeterReadingHeader> seedMeterReadings(LocalDate readingDate, int count) {
+        List<MeterReadingHeader> headers = new ArrayList<>();
+        for (int i = 1; i <= count; i++) {
+            String meterCode = String.format("MTR_%04d", i);
+            MeterReadingHeader header = new MeterReadingHeader(meterCode, readingDate);
+            for (int interval = 1; interval <= 5; interval++) {
+                MeterIntervalReading reading = new MeterIntervalReading(
+                        interval,
+                        BigDecimal.valueOf(10.5 * interval).setScale(6, RoundingMode.HALF_UP)
+                );
+                header.addReading(reading);
+            }
+            headers.add(meterHeaderRepository.save(header));
+        }
+        return headers;
     }
 }
