@@ -70,21 +70,20 @@ When a **JUnit 5 test** triggers an **N+1 loop**:
 
 ```text
 spring-ai-nplus1-test-gate/
-├── pom.xml                                 # Parent BOM (Java 21, Spring Boot 4.1.x, Spring AI 2.0.1)
-├── nplus1-ai-gate-starter/                 # Reusable Test Library Module
-│   ├── src/main/java/.../annotation/       # @EnableNPlusOneAiGate (with @ImportAutoConfiguration)
-│   ├── src/main/java/.../config/           # NPlusOneGateAutoConfiguration, NPlusOneAiClientConfiguration
-│   ├── src/main/java/.../interceptor/      # QueryExecutionListener & NPlusOneGateScope
-│   ├── src/main/java/.../collector/        # StackTraceFilter, SourceExtractor, ExplainPlanRunner
-│   ├── src/main/java/.../cache/            # FingerprintCache (Redis + Local JSON fallback)
-│   ├── src/main/java/.../ai/               # Spring AI ChatClient + NPlusOneDiagnosis record
-│   └── src/main/java/.../listener/         # NPlusOneTestExecutionListener (Order = 4100)
-└── grid-settlement-demo/                   # Wholesale Energy Settlement Demo App
-    ├── src/main/java/.../domain/           # MarketParticipant, BilateralContract, ContractDeclaration, etc.
-    ├── src/main/java/.../repository/       # Spring Data JPA Repositories & DTO Projections
-    ├── src/main/java/.../service/          # GridDailySettlementService (Unoptimized vs Optimized)
-    └── src/test/java/.../                  # Testcontainers Integration Tests (PostgreSQL 16 + Redis 7)
-
+|-- pom.xml                                 # Parent BOM (Java 21, Spring Boot 4.1.x, Spring AI 2.0.1)
+|-- nplus1-ai-gate-starter/                 # Reusable Test Library Module
+|   |-- src/main/java/.../annotation/       # @EnableNPlusOneAiGate (with @ImportAutoConfiguration)
+|   |-- src/main/java/.../config/           # NPlusOneGateAutoConfiguration, NPlusOneAiClientConfiguration
+|   |-- src/main/java/.../interceptor/      # QueryExecutionListener & NPlusOneGateScope
+|   |-- src/main/java/.../collector/        # StackTraceFilter, SourceExtractor, ExplainPlanRunner
+|   |-- src/main/java/.../cache/            # FingerprintCache (Redis + Local JSON fallback)
+|   |-- src/main/java/.../ai/               # Spring AI ChatClient + NPlusOneDiagnosis record
+|   \-- src/main/java/.../listener/         # NPlusOneTestExecutionListener (Order = 4100)
+\-- grid-settlement-demo/                   # Wholesale Energy Settlement Demo App
+    |-- src/main/java/.../domain/           # MarketParticipant, BilateralContract, ContractDeclaration, etc.
+    |-- src/main/java/.../repository/       # Spring Data JPA Repositories & DTO Projections
+    |-- src/main/java/.../service/          # GridDailySettlementService (Unoptimized vs Optimized)
+    \-- src/test/java/.../                  # Testcontainers Integration Tests (PostgreSQL 16 + Redis 7)
 ```
 
 ---

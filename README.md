@@ -125,7 +125,7 @@ The demo module tests **three real-world Hibernate patterns** across **288 five-
 * **Docker** (required for **Testcontainers PostgreSQL 16 & Redis 7**)
 
 
-* **Google AI Studio API Key** (optional—falls back to **deterministic SQL + `EXPLAIN` mode** if omitted)
+* **Google AI Studio API Key** (optional - falls back to **deterministic SQL + `EXPLAIN` mode** if omitted)
 
 
 
@@ -150,7 +150,7 @@ Add **`@EnableNPlusOneAiGate`** to any **`@SpringBootTest`** or **`@DataJpaTest`
 
 ```java
 @DataJpaTest
-@EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example.grid")
+@EnableNPlusOneAiGate(threshold = 5, basePackage = "com.builtbyjuls.grid")
 class GridDailySettlementServiceTest {
 
     @Autowired
