@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: grid-settlement-demo
+  threads:
+    virtual:
+      enabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
