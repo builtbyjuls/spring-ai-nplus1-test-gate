@@ -25,6 +25,20 @@ public class NPlusOneGateProperties {
      */
     private String basePackage = "";
 
+    /**
+     * Enforcement mode for N+1 violations (FAIL or WARN).
+     * Default is FAIL.
+     */
+    private GateMode mode = GateMode.FAIL;
+
+    public GateMode getMode() {
+        return mode;
+    }
+
+    public void setMode(GateMode mode) {
+        this.mode = mode;
+    }
+
     public boolean isEnabled() {
         return enabled;
     }

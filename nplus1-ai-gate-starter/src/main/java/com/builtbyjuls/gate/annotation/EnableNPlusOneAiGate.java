@@ -1,5 +1,6 @@
 package com.builtbyjuls.gate.annotation;
 
+import com.builtbyjuls.gate.config.GateMode;
 import com.builtbyjuls.gate.config.NPlusOneAiClientConfiguration;
 import com.builtbyjuls.gate.config.NPlusOneGateAutoConfiguration;
 import com.builtbyjuls.gate.listener.NPlusOneTestExecutionListener;
@@ -33,6 +34,12 @@ public @interface EnableNPlusOneAiGate {
      * Default is true.
      */
     boolean enabled() default true;
+
+    /**
+     * Enforcement mode for this test class (FAIL, WARN, or DEFAULT).
+     * Default is DEFAULT (defer to nplus1.gate.mode property or default FAIL).
+     */
+    GateMode mode() default GateMode.DEFAULT;
 
     /**
      * Threshold for repeated queries before triggering N+1 failure.

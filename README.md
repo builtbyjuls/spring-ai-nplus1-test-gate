@@ -173,7 +173,10 @@ Configure gate behavior globally in `src/test/resources/application.properties`:
 # Enable or disable the gate (default: true)
 nplus1.gate.enabled=true
 
-# Threshold of repeated SELECT statements before failing (default: 5)
+# Enforcement mode: FAIL (fails test) or WARN (reports diagnostics without failing test, default: FAIL)
+nplus1.gate.mode=FAIL
+
+# Threshold of repeated SELECT statements before triggering (default: 5)
 nplus1.gate.threshold=5
 
 # Optional base package to inspect (defaults to AutoConfigurationPackages or test class package)
@@ -189,6 +192,11 @@ Use `@EnableNPlusOneAiGate` when a specific test class requires custom overrides
 @SpringBootTest
 @EnableNPlusOneAiGate(threshold = 3, basePackage = "com.builtbyjuls.grid")
 class CustomThresholdTest { ... }
+
+// Soft warning mode for onboarding legacy test suites
+@SpringBootTest
+@EnableNPlusOneAiGate(mode = GateMode.WARN)
+class LegacyReportOnlyTest { ... }
 
 // Explicit opt-out for legacy un-optimized batch tests
 @SpringBootTest

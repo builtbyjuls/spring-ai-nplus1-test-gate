@@ -1,6 +1,7 @@
 package com.builtbyjuls.gate.listener;
 
 import com.builtbyjuls.gate.annotation.EnableNPlusOneAiGate;
+import com.builtbyjuls.gate.config.GateMode;
 import com.builtbyjuls.gate.interceptor.NPlusOneGateScope;
 import com.builtbyjuls.gate.interceptor.RecordedQuery;
 import org.junit.jupiter.api.BeforeEach;
@@ -239,6 +240,89 @@ class NPlusOneTestExecutionListenerTest {
         assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();
     }
 
+    @Test
+    @DisplayName("Should log warning and not fail test when nplus1.gate.mode is WARN")
+    void shouldLogWarningAndNotFailTestWhenModeIsWarn() {
+        TestContext testContext = mock(TestContext.class);
+        org.springframework.context.ApplicationContext appContext = mock(org.springframework.context.ApplicationContext.class);
+        org.springframework.core.env.Environment env = mock(org.springframework.core.env.Environment.class);
+        when(testContext.getApplicationContext()).thenReturn(appContext);
+        when(appContext.getEnvironment()).thenReturn(env);
+        when(env.getProperty("nplus1.gate.enabled", Boolean.class, true)).thenReturn(true);
+        when(env.getProperty("nplus1.gate.mode")).thenReturn("WARN");
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(UnannotatedTestClass.class).when(testContext).getTestClass();
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        // Mode is WARN: does not throw AssertionError, logs warning, and clears scope
+        listener.afterTestMethod(testContext);
+        assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should respect @EnableNPlusOneAiGate(mode = GateMode.WARN)")
+    void shouldRespectAnnotationModeWarn() {
+        TestContext testContext = mock(TestContext.class);
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(WarnAnnotatedTestClass.class).when(testContext).getTestClass();
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        // Mode is WARN: passes cleanly without throwing AssertionError
+        listener.afterTestMethod(testContext);
+        assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should allow annotation mode FAIL to override global WARN mode")
+    void shouldAllowAnnotationToOverrideGlobalWarnWithFail() {
+        TestContext testContext = mock(TestContext.class);
+        org.springframework.context.ApplicationContext appContext = mock(org.springframework.context.ApplicationContext.class);
+        org.springframework.core.env.Environment env = mock(org.springframework.core.env.Environment.class);
+        when(testContext.getApplicationContext()).thenReturn(appContext);
+        when(appContext.getEnvironment()).thenReturn(env);
+        when(env.getProperty("nplus1.gate.enabled", Boolean.class, true)).thenReturn(true);
+        when(env.getProperty("nplus1.gate.mode")).thenReturn("WARN");
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(FailOverrideAnnotatedTestClass.class).when(testContext).getTestClass();
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        // Annotation specifies FAIL: overrides global WARN property and throws AssertionError
+        assertThatThrownBy(() -> listener.afterTestMethod(testContext))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("[N+1 AI GATE FAILURE]")
+                .hasMessageContaining("Detected 5 repeated SELECT queries");
+    }
+
     @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example")
     private static class SampleTestClass {
     }
@@ -248,6 +332,14 @@ class NPlusOneTestExecutionListenerTest {
 
     @EnableNPlusOneAiGate(enabled = false)
     private static class DisabledAnnotatedTestClass {
+    }
+
+    @EnableNPlusOneAiGate(mode = GateMode.WARN, threshold = 5, basePackage = "com.example")
+    private static class WarnAnnotatedTestClass {
+    }
+
+    @EnableNPlusOneAiGate(mode = GateMode.FAIL, threshold = 5, basePackage = "com.example")
+    private static class FailOverrideAnnotatedTestClass {
     }
 
     @SuppressWarnings("unchecked")

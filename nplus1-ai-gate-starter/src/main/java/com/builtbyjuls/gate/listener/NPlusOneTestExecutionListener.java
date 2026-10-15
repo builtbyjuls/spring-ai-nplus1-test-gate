@@ -8,11 +8,14 @@ import com.builtbyjuls.gate.analyzer.QueryAnalyzer;
 import com.builtbyjuls.gate.analyzer.QueryGroup;
 import com.builtbyjuls.gate.annotation.EnableNPlusOneAiGate;
 import com.builtbyjuls.gate.cache.FingerprintCacheService;
+import com.builtbyjuls.gate.config.GateMode;
 import com.builtbyjuls.gate.config.NPlusOneGateProperties;
 import com.builtbyjuls.gate.explain.ExplainPlanRunner;
 import com.builtbyjuls.gate.interceptor.NPlusOneGateScope;
 import com.builtbyjuls.gate.interceptor.RecordedQuery;
 import jakarta.persistence.EntityManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.Ordered;
@@ -30,6 +33,8 @@ import java.util.List;
  * rolls back the test transaction.
  */
 public class NPlusOneTestExecutionListener implements TestExecutionListener, Ordered {
+
+    private static final Logger log = LoggerFactory.getLogger(NPlusOneTestExecutionListener.class);
 
     public static final int ORDER = 4100;
 
@@ -110,8 +115,14 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
                 CorrelatedQueryContext context = correlator.correlate(queries, primaryViolation, explainPlan);
                 NPlusOneAiDiagnosisService aiService = resolveAiDiagnosisService(testContext);
                 NPlusOneDiagnosis diagnosis = aiService.diagnose(context);
-                String failureReport = buildFailureReport(context, threshold, diagnosis);
-                throw new AssertionError(failureReport);
+
+                GateMode mode = resolveMode(testContext, gateConfig);
+                String report = buildReport(context, threshold, diagnosis, mode);
+                if (mode == GateMode.WARN) {
+                    log.warn(report);
+                } else {
+                    throw new AssertionError(report);
+                }
             }
         } finally {
             NPlusOneGateScope.reset();
@@ -247,15 +258,43 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
         }
     }
 
-    private String buildFailureReport(CorrelatedQueryContext context, int threshold, NPlusOneDiagnosis diagnosis) {
+    private GateMode resolveMode(TestContext testContext, EnableNPlusOneAiGate gateConfig) {
+        if (gateConfig != null && gateConfig.mode() != GateMode.DEFAULT) {
+            return gateConfig.mode();
+        }
+        try {
+            ApplicationContext ctx = testContext.getApplicationContext();
+            if (ctx != null) {
+                var provider = ctx.getBeanProvider(NPlusOneGateProperties.class);
+                if (provider != null) {
+                    NPlusOneGateProperties properties = provider.getIfAvailable();
+                    if (properties != null && properties.getMode() != null) {
+                        return properties.getMode();
+                    }
+                }
+                if (ctx.getEnvironment() != null) {
+                    String modeProp = ctx.getEnvironment().getProperty("nplus1.gate.mode");
+                    if (modeProp != null && !modeProp.isBlank()) {
+                        return GateMode.valueOf(modeProp.trim().toUpperCase());
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return GateMode.FAIL;
+    }
+
+    private String buildReport(CorrelatedQueryContext context, int threshold, NPlusOneDiagnosis diagnosis, GateMode mode) {
+        String banner = (mode == GateMode.WARN) ? "[N+1 AI GATE WARNING]" : "[N+1 AI GATE FAILURE]";
         return String.format(
-                "%n[N+1 AI GATE FAILURE] Detected %d repeated SELECT queries (Threshold: %d)%n" +
+                "%n%s Detected %d repeated SELECT queries (Threshold: %d)%n" +
                 "  Parent Query (1) : %s%n" +
                 "  Child Loop   (N) : %s%n" +
                 "  Offending SQL    : %s%n" +
                 "  PG Explain Plan  : %s%n" +
                 "  AI Diagnosis     : %s%n" +
                 "  Recommended Fix  : %s%n",
+                banner,
                 context.executionCount(),
                 threshold,
                 context.parentRepositorySignature(),
@@ -265,5 +304,9 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
                 diagnosis != null ? diagnosis.diagnosis() : "N/A",
                 diagnosis != null ? diagnosis.recommendedFix() : "N/A"
         );
+    }
+
+    private String buildFailureReport(CorrelatedQueryContext context, int threshold, NPlusOneDiagnosis diagnosis) {
+        return buildReport(context, threshold, diagnosis, GateMode.FAIL);
     }
 }

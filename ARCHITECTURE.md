@@ -195,8 +195,9 @@ When a lazy query (`N`) fires inside a **Service loop**, the **Repository method
 
 * **Zero-Touch Auto-Registration**: `NPlusOneTestExecutionListener` is declared in `META-INF/spring.factories` under `org.springframework.test.context.TestExecutionListener`. Every `@SpringBootTest` and `@DataJpaTest` is protected automatically without requiring test annotations.
 * **Slice Compatibility**: `@DataJpaTest` loads slice auto-configurations from `META-INF/spring/org.springframework.boot.data.jpa.test.autoconfigure.AutoConfigureDataJpa.imports`, which imports `NPlusOneGateAutoConfiguration`.
-* **Centralized Configuration**: `NPlusOneGateProperties` binds to `nplus1.gate.*` (`enabled`, `threshold`, `base-package`) via `@ConfigurationProperties`.
-* **Optional Per-Test Override**: `@EnableNPlusOneAiGate` allows tests to specify class-level overrides (`threshold`, `basePackage`) or opt out via `enabled = false`:
+* **Centralized Configuration**: `NPlusOneGateProperties` binds to `nplus1.gate.*` (`enabled`, `mode`, `threshold`, `base-package`) via `@ConfigurationProperties`.
+* **Adoption Modes (`FAIL` vs `WARN`)**: Supports progressive onboarding. `WARN` mode runs the full query correlation, PostgreSQL `EXPLAIN`, and Spring AI diagnosis pipeline without failing tests, logging structured diagnostics via `[N+1 AI GATE WARNING]` while warming the SHA-256 fingerprint cache.
+* **Optional Per-Test Override**: `@EnableNPlusOneAiGate` allows tests to specify class-level overrides (`mode`, `threshold`, `basePackage`) or opt out via `enabled = false`:
 
 ```java
 @Target(ElementType.TYPE)
@@ -211,6 +212,7 @@ When a lazy query (`N`) fires inside a **Service loop**, the **Repository method
 )
 public @interface EnableNPlusOneAiGate {
     boolean enabled() default true;
+    GateMode mode() default GateMode.DEFAULT;
     int threshold() default -1;
     String basePackage() default "";
 }
