@@ -65,7 +65,10 @@ class NPlusOneTestExecutionListenerTest {
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("[N+1 AI GATE FAILURE]")
                 .hasMessageContaining("Detected 5 repeated SELECT queries (Threshold: 5)")
-                .hasMessageContaining("com.example.service.OrderService.getOrder(OrderService.java:25)");
+                .hasMessageContaining("Parent Query (1) :")
+                .hasMessageContaining("Child Loop   (N) : com.example.service.OrderService.getOrder(OrderService.java:25)")
+                .hasMessageContaining("Offending SQL    : SELECT * FROM customer WHERE id = ?")
+                .hasMessageContaining("PG Explain Plan  :");
 
         // Scope should be reset after afterTestMethod
         assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();

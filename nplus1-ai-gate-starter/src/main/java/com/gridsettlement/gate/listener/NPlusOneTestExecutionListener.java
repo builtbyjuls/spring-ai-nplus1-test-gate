@@ -1,8 +1,11 @@
 package com.gridsettlement.gate.listener;
 
+import com.gridsettlement.gate.analyzer.CorrelatedQueryContext;
+import com.gridsettlement.gate.analyzer.ParentChildCorrelator;
 import com.gridsettlement.gate.analyzer.QueryAnalyzer;
 import com.gridsettlement.gate.analyzer.QueryGroup;
 import com.gridsettlement.gate.annotation.EnableNPlusOneAiGate;
+import com.gridsettlement.gate.explain.ExplainPlanRunner;
 import com.gridsettlement.gate.interceptor.NPlusOneGateScope;
 import com.gridsettlement.gate.interceptor.RecordedQuery;
 import jakarta.persistence.EntityManager;
@@ -13,6 +16,7 @@ import org.springframework.test.context.TestContext;
 import org.springframework.test.context.TestExecutionListener;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import javax.sql.DataSource;
 import java.util.List;
 
 /**
@@ -24,7 +28,23 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
 
     public static final int ORDER = 4100;
 
-    private final QueryAnalyzer queryAnalyzer = new QueryAnalyzer();
+    private final QueryAnalyzer queryAnalyzer;
+    private final ParentChildCorrelator correlator;
+    private final ExplainPlanRunner explainRunner;
+
+    public NPlusOneTestExecutionListener() {
+        this(new QueryAnalyzer(), new ParentChildCorrelator(), new ExplainPlanRunner());
+    }
+
+    public NPlusOneTestExecutionListener(
+            QueryAnalyzer queryAnalyzer,
+            ParentChildCorrelator correlator,
+            ExplainPlanRunner explainRunner
+    ) {
+        this.queryAnalyzer = queryAnalyzer;
+        this.correlator = correlator;
+        this.explainRunner = explainRunner;
+    }
 
     @Override
     public int getOrder() {
@@ -59,11 +79,27 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
 
             if (!violations.isEmpty()) {
                 QueryGroup primaryViolation = violations.get(0);
-                String failureReport = buildFailureReport(primaryViolation, gateConfig.threshold());
+                DataSource dataSource = findDataSource(testContext);
+
+                String explainPlan = NPlusOneGateScope.withDiagnosticMode(() ->
+                        explainRunner.executeExplain(dataSource, primaryViolation.firstQuery())
+                );
+
+                CorrelatedQueryContext context = correlator.correlate(queries, primaryViolation, explainPlan);
+                String failureReport = buildFailureReport(context, gateConfig.threshold());
                 throw new AssertionError(failureReport);
             }
         } finally {
             NPlusOneGateScope.reset();
+        }
+    }
+
+    private DataSource findDataSource(TestContext testContext) {
+        try {
+            ApplicationContext appContext = testContext.getApplicationContext();
+            return appContext.getBeanProvider(DataSource.class).getIfAvailable();
+        } catch (Exception ignored) {
+            return null;
         }
     }
 
@@ -90,15 +126,19 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
         }
     }
 
-    private String buildFailureReport(QueryGroup violation, int threshold) {
+    private String buildFailureReport(CorrelatedQueryContext context, int threshold) {
         return String.format(
                 "%n[N+1 AI GATE FAILURE] Detected %d repeated SELECT queries (Threshold: %d)%n" +
+                "  Parent Query (1) : %s%n" +
                 "  Child Loop   (N) : %s%n" +
-                "  Offending SQL    : %s%n",
-                violation.executionCount(),
+                "  Offending SQL    : %s%n" +
+                "  PG Explain Plan  : %s%n",
+                context.executionCount(),
                 threshold,
-                violation.callSiteFrame(),
-                violation.normalizedSql()
+                context.parentRepositorySignature(),
+                context.childCallSite(),
+                context.offendingSql(),
+                context.explainPlan()
         );
     }
 }
