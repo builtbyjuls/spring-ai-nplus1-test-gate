@@ -1,7 +1,9 @@
 package com.gridsettlement.gate.annotation;
 
 import com.gridsettlement.gate.config.NPlusOneGateAutoConfiguration;
+import com.gridsettlement.gate.listener.NPlusOneTestExecutionListener;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.test.context.TestExecutionListeners;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -18,6 +20,10 @@ import java.lang.annotation.Target;
 @ImportAutoConfiguration({
         NPlusOneGateAutoConfiguration.class
 })
+@TestExecutionListeners(
+        value = NPlusOneTestExecutionListener.class,
+        mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
+)
 public @interface EnableNPlusOneAiGate {
 
     /**
