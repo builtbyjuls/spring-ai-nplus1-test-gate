@@ -1,0 +1,13 @@
+spring:
+  threads:
+    virtual:
+      enabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:test-api-key}
