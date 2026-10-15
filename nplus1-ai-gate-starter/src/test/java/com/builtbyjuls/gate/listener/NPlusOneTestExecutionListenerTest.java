@@ -323,8 +323,79 @@ class NPlusOneTestExecutionListenerTest {
                 .hasMessageContaining("Detected 5 repeated SELECT queries");
     }
 
+    @Test
+    @DisplayName("Should export reports when violation occurs and reporting is enabled")
+    void shouldExportReportsWhenViolationOccurs(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+        TestContext testContext = mock(TestContext.class);
+        org.springframework.context.ApplicationContext appContext = mock(org.springframework.context.ApplicationContext.class);
+        org.springframework.core.env.Environment env = mock(org.springframework.core.env.Environment.class);
+        when(testContext.getApplicationContext()).thenReturn(appContext);
+        when(appContext.getEnvironment()).thenReturn(env);
+        when(env.getProperty("nplus1.gate.enabled", Boolean.class, true)).thenReturn(true);
+        when(env.getProperty("nplus1.gate.report-enabled", Boolean.class, true)).thenReturn(true);
+        when(env.getProperty("nplus1.gate.report-output-dir")).thenReturn(tempDir.toString());
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(SampleTestClass.class).when(testContext).getTestClass();
+        java.lang.reflect.Method testMethod = SampleTestClass.class.getDeclaredMethod("sampleMethod");
+        when(testContext.getTestMethod()).thenReturn(testMethod);
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        assertThatThrownBy(() -> listener.afterTestMethod(testContext))
+                .isInstanceOf(AssertionError.class);
+
+        assertThat(java.nio.file.Files.exists(tempDir.resolve("report.json"))).isTrue();
+        assertThat(java.nio.file.Files.exists(tempDir.resolve("summary.md"))).isTrue();
+        assertThat(java.nio.file.Files.readString(tempDir.resolve("summary.md")))
+                .contains("SampleTestClass")
+                .contains("sampleMethod");
+    }
+
+    @Test
+    @DisplayName("Should not export reports when report-enabled is false")
+    void shouldNotExportReportsWhenDisabled(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) {
+        TestContext testContext = mock(TestContext.class);
+        org.springframework.context.ApplicationContext appContext = mock(org.springframework.context.ApplicationContext.class);
+        org.springframework.core.env.Environment env = mock(org.springframework.core.env.Environment.class);
+        when(testContext.getApplicationContext()).thenReturn(appContext);
+        when(appContext.getEnvironment()).thenReturn(env);
+        when(env.getProperty("nplus1.gate.enabled", Boolean.class, true)).thenReturn(true);
+        when(env.getProperty("nplus1.gate.report-enabled", Boolean.class, true)).thenReturn(false);
+        when(env.getProperty("nplus1.gate.report-output-dir")).thenReturn(tempDir.toString());
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(SampleTestClass.class).when(testContext).getTestClass();
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        assertThatThrownBy(() -> listener.afterTestMethod(testContext))
+                .isInstanceOf(AssertionError.class);
+
+        assertThat(java.nio.file.Files.exists(tempDir.resolve("report.json"))).isFalse();
+        assertThat(java.nio.file.Files.exists(tempDir.resolve("summary.md"))).isFalse();
+    }
+
     @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example")
     private static class SampleTestClass {
+        void sampleMethod() {
+        }
     }
 
     private static class UnannotatedTestClass {

@@ -1,6 +1,6 @@
 # Spring AI Hibernate N+1 Test Gate
 
-A reusable **Spring Boot 4.1 test starter** (`nplus1-ai-gate-starter`) that catches **Hibernate N+1 query loops** in **JUnit 5** and uses **Spring AI + Google Gemini** to suggest the exact **Java code fix**.
+A reusable **Spring Boot 4.1 test starter** (`nplus1-ai-gate-starter`) that catches **Hibernate N+1 query loops** in **JUnit 5** and uses **Spring AI** (pluggable: **Google Gemini**, **OpenAI**, **Anthropic Claude**, **local Ollama**) to suggest the exact **Java code fix**.
 
 * **Tech Stack**: **Java 21**, **Spring Boot 4.1.x**, **Spring AI 2.0.1**, **Hibernate ORM 7.x**, **PostgreSQL 16** (Testcontainers), **Redis 7** (Testcontainers).
 
@@ -125,7 +125,7 @@ The demo module tests **three real-world Hibernate patterns** across **288 five-
 * **Docker** (required for **Testcontainers PostgreSQL 16 & Redis 7**)
 
 
-* **LLM API Key** (optional - e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`, or local Ollama; falls back to **deterministic SQL + `EXPLAIN` mode** if omitted)
+* **LLM API Key** (optional - e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or local Ollama; falls back to **deterministic SQL + `EXPLAIN` mode** if omitted)
 
 
 
@@ -181,6 +181,12 @@ nplus1.gate.threshold=5
 
 # Optional base package to inspect (defaults to AutoConfigurationPackages or test class package)
 nplus1.gate.base-package=com.builtbyjuls.grid
+
+# Export structured JSON and Markdown diagnostic reports (default: true)
+nplus1.gate.report-enabled=true
+
+# Directory for exported diagnostic reports (default: target/nplus1-reports)
+nplus1.gate.report-output-dir=target/nplus1-reports
 ```
 
 #### 3. Per-Test Overrides (Optional `@EnableNPlusOneAiGate`)
@@ -232,12 +238,51 @@ The starter programs to the Spring AI `ChatModel` interface. Consumers can plug 
       <scope>test</scope>
   </dependency>
   ```
+* **Anthropic Claude**:
+  ```xml
+  <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-starter-model-anthropic</artifactId>
+      <scope>test</scope>
+  </dependency>
+  ```
 
 If no `ChatModel` bean is present on the application context, the test gate automatically operates in deterministic offline mode without failing.
+
+---
+
+## CI/CD Integration & PR Reports
+
+When an N+1 query loop is detected (in either `FAIL` or `WARN` mode), the gate exports structured diagnostic files:
+* **`target/nplus1-reports/report.json`**: Machine-readable JSON array of findings for PR bots, linters, and quality dashboards.
+* **`target/nplus1-reports/summary.md`**: GitHub-flavored Markdown summary table with code snippets, suitable for `$GITHUB_STEP_SUMMARY` and sticky PR comments.
+
+### GitHub Actions Workflow
+
+In `.github/workflows/ci.yml`, the summary is published directly to the Actions run summary and archived as a build artifact:
+
+```yaml
+      - name: Publish N+1 Gate Summary to Step Summary
+        if: always()
+        run: |
+          for f in $(find . -name "summary.md" -path "*/target/nplus1-reports/*"); do
+            cat "$f" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
+
+      - name: Archive N+1 Gate Diagnostic Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nplus1-diagnostic-reports
+          path: '**/target/nplus1-reports/*'
+          if-no-files-found: ignore
+```
 
 ---
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 

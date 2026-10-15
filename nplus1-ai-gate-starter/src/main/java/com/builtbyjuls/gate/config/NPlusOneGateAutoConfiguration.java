@@ -1,6 +1,7 @@
 package com.builtbyjuls.gate.config;
 
 import com.builtbyjuls.gate.interceptor.NPlusOneQueryExecutionListener;
+import com.builtbyjuls.gate.report.NPlusOneReportExporter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -29,5 +30,11 @@ public class NPlusOneGateAutoConfiguration {
             NPlusOneQueryExecutionListener nPlusOneQueryExecutionListener
     ) {
         return new NPlusOneDataSourceBeanPostProcessor(nPlusOneQueryExecutionListener);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public NPlusOneReportExporter nPlusOneReportExporter() {
+        return new NPlusOneReportExporter();
     }
 }

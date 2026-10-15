@@ -13,6 +13,8 @@ import com.builtbyjuls.gate.config.NPlusOneGateProperties;
 import com.builtbyjuls.gate.explain.ExplainPlanRunner;
 import com.builtbyjuls.gate.interceptor.NPlusOneGateScope;
 import com.builtbyjuls.gate.interceptor.RecordedQuery;
+import com.builtbyjuls.gate.report.NPlusOneFinding;
+import com.builtbyjuls.gate.report.NPlusOneReportExporter;
 import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +27,7 @@ import org.springframework.test.context.TestExecutionListener;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.sql.DataSource;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -42,9 +45,10 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
     private final ParentChildCorrelator correlator;
     private final ExplainPlanRunner explainRunner;
     private final NPlusOneAiDiagnosisService diagnosisService;
+    private final NPlusOneReportExporter reportExporter;
 
     public NPlusOneTestExecutionListener() {
-        this(new QueryAnalyzer(), new ParentChildCorrelator(), new ExplainPlanRunner(), new NPlusOneAiDiagnosisService(new FingerprintCacheService()));
+        this(new QueryAnalyzer(), new ParentChildCorrelator(), new ExplainPlanRunner(), new NPlusOneAiDiagnosisService(new FingerprintCacheService()), new NPlusOneReportExporter());
     }
 
     public NPlusOneTestExecutionListener(
@@ -52,7 +56,7 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
             ParentChildCorrelator correlator,
             ExplainPlanRunner explainRunner
     ) {
-        this(queryAnalyzer, correlator, explainRunner, new NPlusOneAiDiagnosisService(new FingerprintCacheService()));
+        this(queryAnalyzer, correlator, explainRunner, new NPlusOneAiDiagnosisService(new FingerprintCacheService()), new NPlusOneReportExporter());
     }
 
     public NPlusOneTestExecutionListener(
@@ -61,10 +65,25 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
             ExplainPlanRunner explainRunner,
             NPlusOneAiDiagnosisService diagnosisService
     ) {
+        this(queryAnalyzer, correlator, explainRunner, diagnosisService, new NPlusOneReportExporter());
+    }
+
+    public NPlusOneTestExecutionListener(
+            QueryAnalyzer queryAnalyzer,
+            ParentChildCorrelator correlator,
+            ExplainPlanRunner explainRunner,
+            NPlusOneAiDiagnosisService diagnosisService,
+            NPlusOneReportExporter reportExporter
+    ) {
         this.queryAnalyzer = queryAnalyzer;
         this.correlator = correlator;
         this.explainRunner = explainRunner;
         this.diagnosisService = diagnosisService;
+        this.reportExporter = reportExporter;
+    }
+
+    public NPlusOneReportExporter getReportExporter() {
+        return reportExporter;
     }
 
     @Override
@@ -117,6 +136,28 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
                 NPlusOneDiagnosis diagnosis = aiService.diagnose(context);
 
                 GateMode mode = resolveMode(testContext, gateConfig);
+
+                if (isReportEnabled(testContext)) {
+                    String testClassName = testContext.getTestClass() != null ? testContext.getTestClass().getName() : "UnknownTestClass";
+                    String testMethodName = testContext.getTestMethod() != null ? testContext.getTestMethod().getName() : "unknownTestMethod";
+                    NPlusOneFinding finding = new NPlusOneFinding(
+                            testClassName,
+                            testMethodName,
+                            mode,
+                            context.executionCount(),
+                            threshold,
+                            context.parentRepositorySignature(),
+                            context.childCallSite(),
+                            context.offendingSql(),
+                            context.explainPlan(),
+                            diagnosis != null ? diagnosis.diagnosis() : "N/A",
+                            diagnosis != null ? diagnosis.recommendedFix() : "N/A",
+                            Instant.now()
+                    );
+                    NPlusOneReportExporter exporter = resolveReportExporter(testContext);
+                    exporter.export(finding, resolveReportOutputDir(testContext));
+                }
+
                 String report = buildReport(context, threshold, diagnosis, mode);
                 if (mode == GateMode.WARN) {
                     log.warn(report);
@@ -308,5 +349,61 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
 
     private String buildFailureReport(CorrelatedQueryContext context, int threshold, NPlusOneDiagnosis diagnosis) {
         return buildReport(context, threshold, diagnosis, GateMode.FAIL);
+    }
+
+    private NPlusOneReportExporter resolveReportExporter(TestContext testContext) {
+        try {
+            ApplicationContext appContext = testContext.getApplicationContext();
+            NPlusOneReportExporter bean = appContext.getBeanProvider(NPlusOneReportExporter.class).getIfAvailable();
+            if (bean != null) {
+                return bean;
+            }
+        } catch (Exception ignored) {
+            // App context might not be available in mock tests
+        }
+        return this.reportExporter != null ? this.reportExporter : new NPlusOneReportExporter();
+    }
+
+    private boolean isReportEnabled(TestContext testContext) {
+        try {
+            ApplicationContext ctx = testContext.getApplicationContext();
+            if (ctx != null) {
+                var provider = ctx.getBeanProvider(NPlusOneGateProperties.class);
+                if (provider != null) {
+                    NPlusOneGateProperties properties = provider.getIfAvailable();
+                    if (properties != null) {
+                        return properties.isReportEnabled();
+                    }
+                }
+                if (ctx.getEnvironment() != null) {
+                    return ctx.getEnvironment().getProperty("nplus1.gate.report-enabled", Boolean.class, true);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return true;
+    }
+
+    private String resolveReportOutputDir(TestContext testContext) {
+        try {
+            ApplicationContext ctx = testContext.getApplicationContext();
+            if (ctx != null) {
+                var provider = ctx.getBeanProvider(NPlusOneGateProperties.class);
+                if (provider != null) {
+                    NPlusOneGateProperties properties = provider.getIfAvailable();
+                    if (properties != null && properties.getReportOutputDir() != null && !properties.getReportOutputDir().isBlank()) {
+                        return properties.getReportOutputDir();
+                    }
+                }
+                if (ctx.getEnvironment() != null) {
+                    String dir = ctx.getEnvironment().getProperty("nplus1.gate.report-output-dir");
+                    if (dir != null && !dir.isBlank()) {
+                        return dir;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return "target/nplus1-reports";
     }
 }

@@ -38,7 +38,7 @@ When a **JUnit 5 test** triggers an **N+1 loop**:
 5. **Cache**: It checks **Redis** or a **local JSON file** using a **SHA-256 fingerprint**.
 
 
-6. **Diagnose**: On a cache miss, it calls **Gemini (`gemini-2.5-flash-lite`)** via **Spring AI** to generate a **Java code fix**.
+6. **Diagnose**: On a cache miss, it calls the configured **Spring AI `ChatModel`** (e.g. **Google Gemini**, **OpenAI**, or **local Ollama**) to generate a **Java code fix**.
 
 
 7. **Fail**: It fails the **JUnit 5 test** with a structured **remediation report**.
@@ -241,6 +241,14 @@ When a test violates the threshold, `AssertionError` outputs:
 
 ```
 
+### 3.8 Structured CI/CD Reports & GitHub Actions Summary
+
+When a violation is detected (in either `FAIL` or `WARN` mode), `NPlusOneReportExporter` exports structured findings to `target/nplus1-reports/`:
+* **`report.json`**: Machine-readable JSON array of `NPlusOneFinding` records containing the test class, test method, mode, repeated query count, threshold, parent query, child call site, offending SQL, EXPLAIN plan, and AI remediation.
+* **`summary.md`**: GitHub-flavored Markdown document with an executive summary table and detailed diagnosis sections for each violation.
+
+In GitHub Actions workflows, the Markdown report is appended to `$GITHUB_STEP_SUMMARY` and all report files are archived via `actions/upload-artifact@v4` with `if: always()`, providing immediate visibility in pull requests without console log parsing.
+
 ---
 
 ## 4. Reference Domain (`grid-settlement-demo`)
@@ -292,55 +300,17 @@ Wholesale electricity markets settle energy across **288 five-minute dispatch in
 * **Scenario C (Optimized Baseline & `@BatchSize` Pass)**:
 * **Entry Point**: Runs the refactored methods and a **`@BatchSize(size = 20)`** test case to verify that the gate passes with **zero false positives** and **zero LLM calls**.
 
-This **Section 5: Key Engineering Trade-offs** table is ready to paste directly at the bottom of your **`ARCHITECTURE.md`** file.
-
 ---
 
 ## 5. Key Engineering Trade-offs
 
 | Decision Area | Chosen Approach | Rejected Alternative | Why We Chose It & Trade-off |
 | --- | --- | --- | --- |
-| **SQL Interception** | **`datasource-proxy`** (`BeanPostProcessor`)
+| **SQL Interception** | **`datasource-proxy`** (`BeanPostProcessor`) | Hibernate **`StatementInspector`** | **Why**: `StatementInspector` only exposes `?` placeholders, hiding bound values needed for **PostgreSQL `EXPLAIN`**.<br><br>**Trade-off**: Adds an extra proxy wrapper around the test `DataSource`. |
+| **Lifecycle Hook** | Spring **`TestExecutionListener` (`Order = 4100`)** | JUnit 5 **`AfterTestExecutionCallback`** | **Why**: Guarantees the gate runs *before* **`TransactionalTestExecutionListener` (`4000`)** rolls back the transaction, regardless of annotation order.<br><br>**Trade-off**: Requires **`spring-test`** context rather than pure JUnit 5. |
+| **Parameter Replay** | **`ParameterSetOperation`** reflective replay | Flat **`List<Object>`** + `ps.setObject()` | **Why**: Preserves exact **`setNull(idx, sqlType)`** and **`setBigDecimal`** calls so **PostgreSQL** never fails with type errors.<br><br>**Trade-off**: Uses reflection (`Method.invoke`) during diagnostic runs. |
+| **Thread Context** | Test-scoped **`ConcurrentLinkedQueue`** | **`ThreadLocal`** storage | **Why**: Captures queries spawned on **Java 21 Virtual Threads**, **`.parallelStream()`**, **`@Async`**, and web server threads.<br><br>**Trade-off**: Cannot run tests in parallel inside the same JVM fork without context isolation. |
+| **Small-Table `EXPLAIN`** | **JDBC `Savepoint`** + **`enable_seqscan = off`** | Unscoped **`EXPLAIN (FORMAT JSON)`** | **Why**: Prevents **PostgreSQL** from choosing **`Seq Scan`** on tiny 20-row test tables (which tricks the **LLM** into blaming missing indexes) and prevents transaction abortion (`25P02`).<br><br>**Trade-off**: Adds savepoint overhead on failed tests. |
+| **Test Registration** | **Zero-touch auto-registration** via `spring.factories` + slice imports | Mandatory test annotations on every test class | **Why**: Protects all `@SpringBootTest` and `@DataJpaTest` suites without developer friction, while preserving per-test override capability via `@EnableNPlusOneAiGate`.<br><br>**Trade-off**: Requires explicit `nplus1.gate.enabled=false` or `@EnableNPlusOneAiGate(enabled = false)` to opt out legacy tests. |
+| **CI/CD Reporting** | **Dual JSON + Markdown Export** (`target/nplus1-reports/`) | Raw console log scraping | **Why**: Enables native GitHub Actions step summaries, PR bot comments, and structured telemetry dashboards without parsing console text.<br><br>**Trade-off**: Requires writing files to the build output directory on violations. |
 
- | Hibernate **`StatementInspector`**<br> | **Why**: `StatementInspector` only exposes `?` placeholders, hiding bound values needed for **PostgreSQL `EXPLAIN**`.
-
-<br>
-
-<br>**Trade-off**: Adds an extra proxy wrapper around the test `DataSource`.
-
- |
-| **Lifecycle Hook** | Spring **`TestExecutionListener` (`Order = 4100`)**<br> | JUnit 5 **`AfterTestExecutionCallback`**<br> | **Why**: Guarantees the gate runs *before* **`TransactionalTestExecutionListener` (`4000`)** rolls back the transaction, regardless of annotation order.
-
-<br>
-
-<br>**Trade-off**: Requires **`spring-test`** context rather than pure JUnit 5. |
-| **Parameter Replay** | **`ParameterSetOperation`** reflective replay
-
- | Flat **`List<Object>`** + `ps.setObject()`<br> | **Why**: Preserves exact **`setNull(idx, sqlType)`** and **`setBigDecimal`** calls so **PostgreSQL** never fails with type errors.
-
-<br>
-
-<br>**Trade-off**: Uses reflection (`Method.invoke`) during diagnostic runs.
-
- |
-| **Thread Context** | Test-scoped **`ConcurrentLinkedQueue`**<br> | **`ThreadLocal`** storage
-
- | **Why**: Captures queries spawned on **Java 21 Virtual Threads**, **`.parallelStream()`**, **`@Async`**, and web server threads.
-
-<br>
-
-<br>**Trade-off**: Cannot run tests in parallel inside the same JVM fork without context isolation. |
-| **Small-Table `EXPLAIN**` | **JDBC `Savepoint**` + **`enable_seqscan = off`**<br> | Unscoped **`EXPLAIN (FORMAT JSON)`**<br> | **Why**: Prevents **PostgreSQL** from choosing **`Seq Scan`** on tiny 20-row test tables (which tricks the **LLM** into blaming missing indexes) and prevents transaction abortion (`25P02`).
-
-<br>
-
-<br>**Trade-off**: Adds savepoint overhead on failed tests.
-
- |
-| **Test Registration** | **Zero-touch auto-registration** via `spring.factories` + slice imports<br> | Mandatory test annotations on every test class<br> | **Why**: Protects all `@SpringBootTest` and `@DataJpaTest` suites without developer friction, while preserving per-test override capability via `@EnableNPlusOneAiGate`.
-
-<br>
-
-<br>**Trade-off**: Requires explicit `nplus1.gate.enabled=false` or `@EnableNPlusOneAiGate(enabled = false)` to opt out legacy tests.
-
- |

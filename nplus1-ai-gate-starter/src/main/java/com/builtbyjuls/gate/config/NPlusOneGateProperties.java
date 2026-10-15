@@ -31,12 +31,40 @@ public class NPlusOneGateProperties {
      */
     private GateMode mode = GateMode.FAIL;
 
+    /**
+     * Whether to export structured diagnostic reports (JSON and Markdown).
+     * Default is true.
+     */
+    private boolean reportEnabled = true;
+
+    /**
+     * Directory where diagnostic reports are exported.
+     * Default is "target/nplus1-reports".
+     */
+    private String reportOutputDir = "target/nplus1-reports";
+
     public GateMode getMode() {
         return mode;
     }
 
     public void setMode(GateMode mode) {
         this.mode = mode;
+    }
+
+    public boolean isReportEnabled() {
+        return reportEnabled;
+    }
+
+    public void setReportEnabled(boolean reportEnabled) {
+        this.reportEnabled = reportEnabled;
+    }
+
+    public String getReportOutputDir() {
+        return reportOutputDir;
+    }
+
+    public void setReportOutputDir(String reportOutputDir) {
+        this.reportOutputDir = reportOutputDir;
     }
 
     public boolean isEnabled() {

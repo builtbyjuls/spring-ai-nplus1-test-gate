@@ -27,3 +27,21 @@ jobs:
 
       - name: Build and verify with Maven
         run: ./mvnw -B clean verify
+
+      - name: Publish N+1 Gate Summary to Step Summary
+        if: always()
+        run: |
+          for f in $(find . -name "summary.md" -path "*/target/nplus1-reports/*"); do
+            echo "Publishing $f to GITHUB_STEP_SUMMARY"
+            cat "$f" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
+
+      - name: Archive N+1 Gate Diagnostic Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nplus1-diagnostic-reports
+          path: '**/target/nplus1-reports/*'
+          if-no-files-found: ignore
+

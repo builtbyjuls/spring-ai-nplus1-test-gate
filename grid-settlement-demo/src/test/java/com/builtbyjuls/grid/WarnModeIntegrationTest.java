@@ -66,7 +66,7 @@ class WarnModeIntegrationTest extends PostgreSqlTestContainerBase {
     @Test
     @Transactional
     @DisplayName("Should execute full diagnostic pipeline in WARN mode without throwing AssertionError")
-    void shouldLogWarningAndNotFailTestInWarnMode() {
+    void shouldLogWarningAndNotFailTestInWarnMode() throws Exception {
         // Trigger N+1 un-optimized query loop
         settlementService.buildParticipantSummary(TRADING_DATE);
 
@@ -75,6 +75,7 @@ class WarnModeIntegrationTest extends PostgreSqlTestContainerBase {
         TestContext mockContext = mock(TestContext.class);
         when(mockContext.getTestException()).thenReturn(null);
         doReturn(this.getClass()).when(mockContext).getTestClass();
+        doReturn(this.getClass().getDeclaredMethod("shouldLogWarningAndNotFailTestInWarnMode")).when(mockContext).getTestMethod();
         when(mockContext.getApplicationContext()).thenReturn(applicationContext);
 
         // Verification: afterTestMethod completes normally without throwing AssertionError
@@ -86,5 +87,9 @@ class WarnModeIntegrationTest extends PostgreSqlTestContainerBase {
 
         // Diagnostic pipeline ran and populated cache entry
         assertThat(cacheService.size()).isGreaterThanOrEqualTo(1);
+
+        // Diagnostic reports generated in target directory
+        assertThat(java.nio.file.Files.exists(java.nio.file.Path.of("target/nplus1-reports/report.json"))).isTrue();
+        assertThat(java.nio.file.Files.exists(java.nio.file.Path.of("target/nplus1-reports/summary.md"))).isTrue();
     }
 }
