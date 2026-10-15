@@ -32,7 +32,7 @@ Standard Java SQL assertion libraries (`datasource-proxy`, `QuickPerf`) only cou
 5. **Caches Diagnoses**: Checks **Redis** or a **local `.nplus1-ai-cache.json` file** by **SHA-256 fingerprint** for **< 10ms** repeat runs.
 
 
-6. **Generates Structured Fixes**: Calls **`gemini-2.5-flash-lite`** via **Spring AI `ChatClient**` on a cache miss to output a verified **Java fix**.
+6. **Generates Structured Fixes**: Calls the configured LLM (e.g. **Google Gemini**, **OpenAI**, or **local Ollama**) via **Spring AI `ChatClient`** on a cache miss to output a verified **Java fix**.
 
 
 
@@ -48,7 +48,7 @@ sequenceDiagram
     participant Proxy as datasource-proxy (NPlusOneGateScope)
     participant PG as PostgreSQL 16 (Testcontainers)
     participant Cache as FingerprintCache (Redis / Local JSON)
-    participant AI as Spring AI (gemini-2.5-flash-lite)
+    participant AI as Spring AI (Gemini / OpenAI / Ollama)
 
     Test->>Listener: beforeTestMethod() (After Spring Tx Starts)
     Test->>Proxy: NPlusOneGateScope.reset() (Clears Arrange SQL)
@@ -94,7 +94,7 @@ When an **N+1 query loop** exceeds the threshold (default **`5`**), your **JUnit
 * **`grid-settlement-demo/`**: Wholesale **electricity market settlement app** modeling **288 daily 5-minute dispatch intervals**.
 
 
-* **`docs/RFC-001-architecture-spec.md`**: Full **engineering specification** and edge-case design.
+* **[ARCHITECTURE.md](ARCHITECTURE.md)**: Full **architectural specification**, safe `EXPLAIN` execution, and edge-case invariants.
 
 
 
@@ -125,7 +125,7 @@ The demo module tests **three real-world Hibernate patterns** across **288 five-
 * **Docker** (required for **Testcontainers PostgreSQL 16 & Redis 7**)
 
 
-* **Google AI Studio API Key** (optional - falls back to **deterministic SQL + `EXPLAIN` mode** if omitted)
+* **LLM API Key** (optional - e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`, or local Ollama; falls back to **deterministic SQL + `EXPLAIN` mode** if omitted)
 
 
 
@@ -136,7 +136,7 @@ The demo module tests **three real-world Hibernate patterns** across **288 five-
 git clone https://github.com/builtbyjuls/spring-ai-nplus1-test-gate.git
 cd spring-ai-nplus1-test-gate
 
-# 2. (Optional) Export your Gemini API key for live AI diagnosis
+# 2. (Optional) Export your API key for live AI diagnosis (e.g. Gemini)
 export GEMINI_API_KEY="your-api-key-here"
 
 # 3. Run the Testcontainers suite
@@ -149,7 +149,7 @@ export GEMINI_API_KEY="your-api-key-here"
 Add **`@EnableNPlusOneAiGate`** to any **`@SpringBootTest`** or **`@DataJpaTest`** class:
 
 ```java
-@DataJpaTest
+@SpringBootTest
 @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.builtbyjuls.grid")
 class GridDailySettlementServiceTest {
 
