@@ -1,1 +1,2 @@
 com.gridsettlement.gate.config.NPlusOneGateAutoConfiguration
+com.gridsettlement.gate.config.NPlusOneAiClientConfiguration

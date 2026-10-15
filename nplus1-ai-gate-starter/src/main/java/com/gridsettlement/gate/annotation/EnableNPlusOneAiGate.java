@@ -1,5 +1,6 @@
 package com.gridsettlement.gate.annotation;
 
+import com.gridsettlement.gate.config.NPlusOneAiClientConfiguration;
 import com.gridsettlement.gate.config.NPlusOneGateAutoConfiguration;
 import com.gridsettlement.gate.listener.NPlusOneTestExecutionListener;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -18,7 +19,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @ImportAutoConfiguration({
-        NPlusOneGateAutoConfiguration.class
+        NPlusOneGateAutoConfiguration.class,
+        NPlusOneAiClientConfiguration.class
 })
 @TestExecutionListeners(
         value = NPlusOneTestExecutionListener.class,

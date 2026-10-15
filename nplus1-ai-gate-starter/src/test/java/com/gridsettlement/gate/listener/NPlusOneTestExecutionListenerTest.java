@@ -68,7 +68,9 @@ class NPlusOneTestExecutionListenerTest {
                 .hasMessageContaining("Parent Query (1) :")
                 .hasMessageContaining("Child Loop   (N) : com.example.service.OrderService.getOrder(OrderService.java:25)")
                 .hasMessageContaining("Offending SQL    : SELECT * FROM customer WHERE id = ?")
-                .hasMessageContaining("PG Explain Plan  :");
+                .hasMessageContaining("PG Explain Plan  :")
+                .hasMessageContaining("AI Diagnosis     :")
+                .hasMessageContaining("Recommended Fix  :");
 
         // Scope should be reset after afterTestMethod
         assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();

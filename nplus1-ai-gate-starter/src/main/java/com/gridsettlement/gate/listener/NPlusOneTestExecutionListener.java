@@ -1,10 +1,13 @@
 package com.gridsettlement.gate.listener;
 
+import com.gridsettlement.gate.ai.NPlusOneAiDiagnosisService;
+import com.gridsettlement.gate.ai.model.NPlusOneDiagnosis;
 import com.gridsettlement.gate.analyzer.CorrelatedQueryContext;
 import com.gridsettlement.gate.analyzer.ParentChildCorrelator;
 import com.gridsettlement.gate.analyzer.QueryAnalyzer;
 import com.gridsettlement.gate.analyzer.QueryGroup;
 import com.gridsettlement.gate.annotation.EnableNPlusOneAiGate;
+import com.gridsettlement.gate.cache.FingerprintCacheService;
 import com.gridsettlement.gate.explain.ExplainPlanRunner;
 import com.gridsettlement.gate.interceptor.NPlusOneGateScope;
 import com.gridsettlement.gate.interceptor.RecordedQuery;
@@ -31,9 +34,10 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
     private final QueryAnalyzer queryAnalyzer;
     private final ParentChildCorrelator correlator;
     private final ExplainPlanRunner explainRunner;
+    private final NPlusOneAiDiagnosisService diagnosisService;
 
     public NPlusOneTestExecutionListener() {
-        this(new QueryAnalyzer(), new ParentChildCorrelator(), new ExplainPlanRunner());
+        this(new QueryAnalyzer(), new ParentChildCorrelator(), new ExplainPlanRunner(), new NPlusOneAiDiagnosisService(new FingerprintCacheService()));
     }
 
     public NPlusOneTestExecutionListener(
@@ -41,9 +45,19 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
             ParentChildCorrelator correlator,
             ExplainPlanRunner explainRunner
     ) {
+        this(queryAnalyzer, correlator, explainRunner, new NPlusOneAiDiagnosisService(new FingerprintCacheService()));
+    }
+
+    public NPlusOneTestExecutionListener(
+            QueryAnalyzer queryAnalyzer,
+            ParentChildCorrelator correlator,
+            ExplainPlanRunner explainRunner,
+            NPlusOneAiDiagnosisService diagnosisService
+    ) {
         this.queryAnalyzer = queryAnalyzer;
         this.correlator = correlator;
         this.explainRunner = explainRunner;
+        this.diagnosisService = diagnosisService;
     }
 
     @Override
@@ -86,12 +100,27 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
                 );
 
                 CorrelatedQueryContext context = correlator.correlate(queries, primaryViolation, explainPlan);
-                String failureReport = buildFailureReport(context, gateConfig.threshold());
+                NPlusOneAiDiagnosisService aiService = resolveAiDiagnosisService(testContext);
+                NPlusOneDiagnosis diagnosis = aiService.diagnose(context);
+                String failureReport = buildFailureReport(context, gateConfig.threshold(), diagnosis);
                 throw new AssertionError(failureReport);
             }
         } finally {
             NPlusOneGateScope.reset();
         }
+    }
+
+    private NPlusOneAiDiagnosisService resolveAiDiagnosisService(TestContext testContext) {
+        try {
+            ApplicationContext appContext = testContext.getApplicationContext();
+            NPlusOneAiDiagnosisService bean = appContext.getBeanProvider(NPlusOneAiDiagnosisService.class).getIfAvailable();
+            if (bean != null) {
+                return bean;
+            }
+        } catch (Exception ignored) {
+            // App context might not be available in mock tests
+        }
+        return this.diagnosisService != null ? this.diagnosisService : new NPlusOneAiDiagnosisService(new FingerprintCacheService());
     }
 
     private DataSource findDataSource(TestContext testContext) {
@@ -126,19 +155,23 @@ public class NPlusOneTestExecutionListener implements TestExecutionListener, Ord
         }
     }
 
-    private String buildFailureReport(CorrelatedQueryContext context, int threshold) {
+    private String buildFailureReport(CorrelatedQueryContext context, int threshold, NPlusOneDiagnosis diagnosis) {
         return String.format(
                 "%n[N+1 AI GATE FAILURE] Detected %d repeated SELECT queries (Threshold: %d)%n" +
                 "  Parent Query (1) : %s%n" +
                 "  Child Loop   (N) : %s%n" +
                 "  Offending SQL    : %s%n" +
-                "  PG Explain Plan  : %s%n",
+                "  PG Explain Plan  : %s%n" +
+                "  AI Diagnosis     : %s%n" +
+                "  Recommended Fix  : %s%n",
                 context.executionCount(),
                 threshold,
                 context.parentRepositorySignature(),
                 context.childCallSite(),
                 context.offendingSql(),
-                context.explainPlan()
+                context.explainPlan(),
+                diagnosis != null ? diagnosis.diagnosis() : "N/A",
+                diagnosis != null ? diagnosis.recommendedFix() : "N/A"
         );
     }
 }
