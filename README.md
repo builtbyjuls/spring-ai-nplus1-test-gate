@@ -168,3 +168,41 @@ class GridDailySettlementServiceTest {
 }
 
 ```
+
+### Pluggable AI Model Providers
+
+The starter programs to the Spring AI `ChatModel` interface. Consumers can plug in any supported Spring AI model starter:
+
+* **Local / Offline (Ollama)**:
+  ```xml
+  <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-starter-model-ollama</artifactId>
+      <scope>test</scope>
+  </dependency>
+  ```
+* **OpenAI**:
+  ```xml
+  <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-starter-model-openai</artifactId>
+      <scope>test</scope>
+  </dependency>
+  ```
+* **Google Gemini**:
+  ```xml
+  <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-starter-model-google-genai</artifactId>
+      <scope>test</scope>
+  </dependency>
+  ```
+
+If no `ChatModel` bean is present on the application context, the test gate automatically operates in deterministic offline mode without failing.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
