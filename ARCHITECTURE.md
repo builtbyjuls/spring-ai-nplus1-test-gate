@@ -110,7 +110,7 @@ spring-ai-nplus1-test-gate/
 
 Relying on **JUnit 5 `@ExtendWith` ordering** is fragile when annotations are reordered on a test class.
 
-* **Deterministic Ordering**: `@EnableNPlusOneAiGate` registers `NPlusOneTestExecutionListener` (extending `AbstractTestExecutionListener`) at **`getOrder() = 4100`**. Because **`TransactionalTestExecutionListener`** runs at order **`4000`**, the gate always starts recording *after* the test transaction opens and analyzes queries *before* the transaction rolls back.
+* **Deterministic Ordering**: `NPlusOneTestExecutionListener` is auto-registered across all tests via `META-INF/spring.factories` at **`getOrder() = 4100`** (and can also be bound via `@EnableNPlusOneAiGate`). Because **`TransactionalTestExecutionListener`** runs at order **`4000`**, the gate always starts recording *after* the test transaction opens and analyzes queries *before* the transaction rolls back.
 
 
 * **Crash Short-Circuit**: If **`testContext.getTestException() != null`**, the listener skips analysis immediately. This avoids running **`EXPLAIN`** on an **aborted PostgreSQL transaction (`SQLState 25P02`)** and never masks a real test failure.
@@ -191,11 +191,12 @@ When a lazy query (`N`) fires inside a **Service loop**, the **Repository method
 
 
 
-### 3.6 Slice Auto-Configuration & Spring AI Integration
+### 3.6 Slice Auto-Configuration & Zero-Touch Registration
 
-* **Slice Compatibility**: `@DataJpaTest` ignores standard `AutoConfiguration.imports`. `@EnableNPlusOneAiGate` binds its beans directly using **`@ImportAutoConfiguration`**:
-
-
+* **Zero-Touch Auto-Registration**: `NPlusOneTestExecutionListener` is declared in `META-INF/spring.factories` under `org.springframework.test.context.TestExecutionListener`. Every `@SpringBootTest` and `@DataJpaTest` is protected automatically without requiring test annotations.
+* **Slice Compatibility**: `@DataJpaTest` loads slice auto-configurations from `META-INF/spring/org.springframework.boot.data.jpa.test.autoconfigure.AutoConfigureDataJpa.imports`, which imports `NPlusOneGateAutoConfiguration`.
+* **Centralized Configuration**: `NPlusOneGateProperties` binds to `nplus1.gate.*` (`enabled`, `threshold`, `base-package`) via `@ConfigurationProperties`.
+* **Optional Per-Test Override**: `@EnableNPlusOneAiGate` allows tests to specify class-level overrides (`threshold`, `basePackage`) or opt out via `enabled = false`:
 
 ```java
 @Target(ElementType.TYPE)
@@ -209,10 +210,10 @@ When a lazy query (`N`) fires inside a **Service loop**, the **Repository method
     mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
 )
 public @interface EnableNPlusOneAiGate {
-    int threshold() default 5;
+    boolean enabled() default true;
+    int threshold() default -1;
     String basePackage() default "";
 }
-
 ```
 
 * **Spring AI Settings (`application-test.yml`)**: Uses **`gemini-2.5-flash-lite`** (`temperature: 0.1`, `max-output-tokens: 800`) with **`StructuredOutputValidationAdvisor`** (max 2 retries). `NPlusOneDiagnosis` uses `com.fasterxml.jackson.annotation.*` for **Jackson 2 / Jackson 3** compatibility in **Spring Boot 4.1**.
@@ -334,10 +335,10 @@ This **Section 5: Key Engineering Trade-offs** table is ready to paste directly 
 <br>**Trade-off**: Adds savepoint overhead on failed tests.
 
  |
-| **Slice Wiring** | **`@ImportAutoConfiguration`** on **`@EnableNPlusOneAiGate`**<br> | Global **`AutoConfiguration.imports`**<br> | **Why**: Works inside **`@DataJpaTest`** slices without breaking **`@WebMvcTest`** tests that have no `DataSource`.
+| **Test Registration** | **Zero-touch auto-registration** via `spring.factories` + slice imports<br> | Mandatory test annotations on every test class<br> | **Why**: Protects all `@SpringBootTest` and `@DataJpaTest` suites without developer friction, while preserving per-test override capability via `@EnableNPlusOneAiGate`.
 
 <br>
 
-<br>**Trade-off**: Developers must annotate test classes with **`@EnableNPlusOneAiGate`**.
+<br>**Trade-off**: Requires explicit `nplus1.gate.enabled=false` or `@EnableNPlusOneAiGate(enabled = false)` to opt out legacy tests.
 
  |

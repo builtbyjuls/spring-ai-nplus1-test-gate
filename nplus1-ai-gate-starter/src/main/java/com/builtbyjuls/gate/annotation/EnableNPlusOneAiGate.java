@@ -29,10 +29,16 @@ import java.lang.annotation.Target;
 public @interface EnableNPlusOneAiGate {
 
     /**
-     * Threshold for repeated queries before triggering N+1 failure.
-     * Default is 5.
+     * Whether the N+1 gate is enabled for this test class.
+     * Default is true.
      */
-    int threshold() default 5;
+    boolean enabled() default true;
+
+    /**
+     * Threshold for repeated queries before triggering N+1 failure.
+     * Default is -1 (deferred to nplus1.gate.threshold property or default 5).
+     */
+    int threshold() default -1;
 
     /**
      * Base package to inspect for application stack frames and source resolution.

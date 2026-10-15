@@ -129,8 +129,125 @@ class NPlusOneTestExecutionListenerTest {
         assertThat(foundListener).isTrue();
     }
 
+    @Test
+    @DisplayName("Should be registered by default in TestContextManager without any annotations")
+    void shouldBeRegisteredByDefaultWithoutAnyAnnotation() {
+        org.springframework.test.context.TestContextManager tcm = new org.springframework.test.context.TestContextManager(UnannotatedTestClass.class);
+        boolean foundListener = tcm.getTestExecutionListeners().stream()
+                .anyMatch(l -> l instanceof NPlusOneTestExecutionListener);
+        assertThat(foundListener).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should fail test even without annotation when default threshold is exceeded")
+    void shouldFailEvenWithoutAnnotationWhenThresholdExceeded() {
+        TestContext testContext = mock(TestContext.class);
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(UnannotatedTestClass.class).when(testContext).getTestClass();
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        assertThatThrownBy(() -> listener.afterTestMethod(testContext))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("[N+1 AI GATE FAILURE]")
+                .hasMessageContaining("Detected 5 repeated SELECT queries (Threshold: 5)");
+    }
+
+    @Test
+    @DisplayName("Should skip gate check when @EnableNPlusOneAiGate has enabled = false")
+    void shouldSkipWhenAnnotationExplicitlyDisabled() {
+        TestContext testContext = mock(TestContext.class);
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(DisabledAnnotatedTestClass.class).when(testContext).getTestClass();
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 10; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        listener.afterTestMethod(testContext);
+        assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should skip gate check when nplus1.gate.enabled property is false")
+    void shouldSkipWhenPropertyDisabled() {
+        TestContext testContext = mock(TestContext.class);
+        org.springframework.context.ApplicationContext appContext = mock(org.springframework.context.ApplicationContext.class);
+        org.springframework.core.env.Environment env = mock(org.springframework.core.env.Environment.class);
+        when(testContext.getApplicationContext()).thenReturn(appContext);
+        when(appContext.getEnvironment()).thenReturn(env);
+        when(env.getProperty("nplus1.gate.enabled", Boolean.class, true)).thenReturn(false);
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(UnannotatedTestClass.class).when(testContext).getTestClass();
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 10; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        listener.afterTestMethod(testContext);
+    }
+
+    @Test
+    @DisplayName("Should respect threshold configured via nplus1.gate.threshold property")
+    void shouldRespectThresholdFromProperties() {
+        TestContext testContext = mock(TestContext.class);
+        org.springframework.context.ApplicationContext appContext = mock(org.springframework.context.ApplicationContext.class);
+        org.springframework.core.env.Environment env = mock(org.springframework.core.env.Environment.class);
+        when(testContext.getApplicationContext()).thenReturn(appContext);
+        when(appContext.getEnvironment()).thenReturn(env);
+        when(env.getProperty("nplus1.gate.enabled", Boolean.class, true)).thenReturn(true);
+        when(env.getProperty("nplus1.gate.threshold", Integer.class)).thenReturn(10);
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(UnannotatedTestClass.class).when(testContext).getTestClass();
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 7; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        // 7 queries is below threshold 10, so it should pass cleanly
+        listener.afterTestMethod(testContext);
+        assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();
+    }
+
     @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example")
     private static class SampleTestClass {
+    }
+
+    private static class UnannotatedTestClass {
+    }
+
+    @EnableNPlusOneAiGate(enabled = false)
+    private static class DisabledAnnotatedTestClass {
     }
 
     @SuppressWarnings("unchecked")

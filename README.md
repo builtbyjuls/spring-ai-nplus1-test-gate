@@ -146,11 +146,12 @@ export GEMINI_API_KEY="your-api-key-here"
 
 ### Usage in Your Own Project
 
-Add **`@EnableNPlusOneAiGate`** to any **`@SpringBootTest`** or **`@DataJpaTest`** class:
+#### 1. Zero-Touch Auto-Registration (Default)
+
+Simply add `nplus1-ai-gate-starter` to your test dependencies. The gate is automatically registered across all Spring Boot tests (`@SpringBootTest` and `@DataJpaTest`) with zero test code changes required:
 
 ```java
 @SpringBootTest
-@EnableNPlusOneAiGate(threshold = 5, basePackage = "com.builtbyjuls.grid")
 class GridDailySettlementServiceTest {
 
     @Autowired
@@ -158,15 +159,41 @@ class GridDailySettlementServiceTest {
 
     @Test
     void shouldDetectNPlusOneOnParticipantSummary() {
-        // Arrange: seed test data
-        seedDeclarations();
-        NPlusOneGateScope.reset(); // Ignore setup SQL
-
-        // Act: triggers N+1 gate analysis before transaction rollback
+        // Automatically intercepted: fails if repeated query threshold (default 5) is exceeded
         settlementService.buildParticipantSummary(LocalDate.of(2026, 10, 15));
     }
 }
+```
 
+#### 2. Configuration Properties
+
+Configure gate behavior globally in `src/test/resources/application.properties`:
+
+```properties
+# Enable or disable the gate (default: true)
+nplus1.gate.enabled=true
+
+# Threshold of repeated SELECT statements before failing (default: 5)
+nplus1.gate.threshold=5
+
+# Optional base package to inspect (defaults to AutoConfigurationPackages or test class package)
+nplus1.gate.base-package=com.builtbyjuls.grid
+```
+
+#### 3. Per-Test Overrides (Optional `@EnableNPlusOneAiGate`)
+
+Use `@EnableNPlusOneAiGate` when a specific test class requires custom overrides or temporary opt-out:
+
+```java
+// Custom threshold and base package
+@SpringBootTest
+@EnableNPlusOneAiGate(threshold = 3, basePackage = "com.builtbyjuls.grid")
+class CustomThresholdTest { ... }
+
+// Explicit opt-out for legacy un-optimized batch tests
+@SpringBootTest
+@EnableNPlusOneAiGate(enabled = false)
+class LegacyBatchTest { ... }
 ```
 
 ### Pluggable AI Model Providers
