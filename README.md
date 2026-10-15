@@ -133,7 +133,7 @@ The demo module tests **three real-world Hibernate patterns** across **288 five-
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/spring-ai-nplus1-test-gate.git
+git clone https://github.com/builtbyjuls/spring-ai-nplus1-test-gate.git
 cd spring-ai-nplus1-test-gate
 
 # 2. (Optional) Export your Gemini API key for live AI diagnosis
