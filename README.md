@@ -1,5 +1,9 @@
 # Spring AI Hibernate N+1 Test Gate
 
+[![Maven Central](https://img.shields.io/maven-central/v/com.builtbyjuls/nplus1-ai-gate-starter.svg)](https://central.sonatype.com/artifact/com.builtbyjuls/nplus1-ai-gate-starter)
+[![CI](https://github.com/builtbyjuls/spring-ai-nplus1-test-gate/actions/workflows/ci.yml/badge.svg)](https://github.com/builtbyjuls/spring-ai-nplus1-test-gate/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A reusable **Spring Boot 4.1 test starter** (`nplus1-ai-gate-starter`) that catches **Hibernate N+1 query loops** in **JUnit 5** and uses **Spring AI** (pluggable: **Google Gemini**, **OpenAI**, **Anthropic Claude**, **local Ollama**) to suggest the exact **Java code fix**.
 
 * **Tech Stack**: **Java 21**, **Spring Boot 4.1.x**, **Spring AI 2.0.1**, **Hibernate ORM 7.x**, **PostgreSQL 16** (Testcontainers), **Redis 7** (Testcontainers).
@@ -154,14 +158,14 @@ Add `nplus1-ai-gate-starter` to your test classpath:
 <dependency>
     <groupId>com.builtbyjuls</groupId>
     <artifactId>nplus1-ai-gate-starter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <scope>test</scope>
 </dependency>
 ```
 
 Or with Gradle:
 ```groovy
-testImplementation 'com.builtbyjuls:nplus1-ai-gate-starter:0.0.1-SNAPSHOT'
+testImplementation 'com.builtbyjuls:nplus1-ai-gate-starter:0.1.0'
 ```
 
 #### 2. Zero-Touch Auto-Registration (Default)
