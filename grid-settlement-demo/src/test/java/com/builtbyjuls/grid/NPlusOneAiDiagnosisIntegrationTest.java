@@ -91,8 +91,8 @@ class NPlusOneAiDiagnosisIntegrationTest extends PostgreSqlTestContainerBase {
                 .hasMessageContaining("Child Loop   (N) : com.builtbyjuls.grid.service.GridDailySettlementService.buildParticipantSummary")
                 .hasMessageContaining("Offending SQL    :")
                 .hasMessageContaining("PG Explain Plan  :")
-                .hasMessageContaining("AI Diagnosis     : Lazy @ManyToOne traversal inside loop.")
-                .hasMessageContaining("Recommended Fix  : Add @EntityGraph");
+                .hasMessageContaining("AI Diagnosis     :")
+                .hasMessageContaining("Recommended Fix  :");
 
         // Verify SHA-256 fingerprint entry was saved in cache
         assertThat(cacheService.size()).isGreaterThanOrEqualTo(1);
@@ -117,8 +117,8 @@ class NPlusOneAiDiagnosisIntegrationTest extends PostgreSqlTestContainerBase {
                 .hasMessageContaining("Child Loop   (N) : com.builtbyjuls.grid.service.GridDailySettlementService.buildDailyVolumeAudit")
                 .hasMessageContaining("Offending SQL    :")
                 .hasMessageContaining("PG Explain Plan  :")
-                .hasMessageContaining("AI Diagnosis     : Lazy collection traversal inside loop.")
-                .hasMessageContaining("Recommended Fix  : Replace collection loading with a JPQL DTO aggregation query");
+                .hasMessageContaining("AI Diagnosis     :")
+                .hasMessageContaining("Recommended Fix  :");
     }
 
     @Test

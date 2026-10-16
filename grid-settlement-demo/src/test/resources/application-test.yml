@@ -11,3 +11,7 @@ spring:
     google:
       genai:
         api-key: ${GEMINI_API_KEY:test-api-key}
+        chat:
+          model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
+          temperature: 0.1
+          max-output-tokens: 800

@@ -138,7 +138,7 @@ The demo module tests **three real-world Hibernate patterns** across **288 five-
 * **Docker** (required for **Testcontainers PostgreSQL 16 & Redis 7**)
 
 
-* **LLM API Key** (optional - e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or local Ollama; falls back to **deterministic SQL + `EXPLAIN` mode** if omitted)
+* **LLM API Key** (optional - the demo application is tested and verified against Google Gemini using `GEMINI_API_KEY` with `gemini-3.5-flash-lite`; falls back to **deterministic SQL + `EXPLAIN` mode** if omitted)
 
 
 

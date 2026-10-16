@@ -218,7 +218,7 @@ public @interface EnableNPlusOneAiGate {
 }
 ```
 
-* **Spring AI Settings (`application-test.yml`)**: Uses **`gemini-2.5-flash-lite`** (`temperature: 0.1`, `max-output-tokens: 800`) with **`StructuredOutputValidationAdvisor`** (max 2 retries). `NPlusOneDiagnosis` uses `com.fasterxml.jackson.annotation.*` for **Jackson 2 / Jackson 3** compatibility in **Spring Boot 4.1**.
+* **Spring AI Settings (`application-test.yml`)**: Uses **`gemini-3.5-flash-lite`** (`temperature: 0.1`, `max-output-tokens: 800`) configured directly under `spring.ai.google.genai.chat.*`. While the starter is provider-agnostic via Spring AI abstractions, the demo application is actively tested and verified against Google Gemini (`gemini-3.5-flash-lite`).
 
 
 * **Offline Fallback**: If **`GEMINI_API_KEY`** is unset or returns HTTP 429/5xx, the gate fails the JUnit test deterministically with the **query count**, **correlated stack frames**, and **pruned `EXPLAIN` plan**.
