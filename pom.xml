@@ -13,7 +13,7 @@
 
     <groupId>com.builtbyjuls</groupId>
     <artifactId>spring-ai-nplus1-test-gate</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <packaging>pom</packaging>
     <name>spring-ai-nplus1-test-gate</name>
     <description>Hibernate N+1 Query Loop Test Gate with Spring AI</description>

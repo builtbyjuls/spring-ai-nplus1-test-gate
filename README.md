@@ -154,14 +154,14 @@ Add `nplus1-ai-gate-starter` to your test classpath:
 <dependency>
     <groupId>com.builtbyjuls</groupId>
     <artifactId>nplus1-ai-gate-starter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <scope>test</scope>
 </dependency>
 ```
 
 Or with Gradle:
 ```groovy
-testImplementation 'com.builtbyjuls:nplus1-ai-gate-starter:0.0.1-SNAPSHOT'
+testImplementation 'com.builtbyjuls:nplus1-ai-gate-starter:0.1.0'
 ```
 
 #### 2. Zero-Touch Auto-Registration (Default)
