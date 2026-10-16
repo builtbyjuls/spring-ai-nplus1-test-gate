@@ -157,6 +157,9 @@
                         <publishingServerId>central</publishingServerId>
                         <autoPublish>true</autoPublish>
                         <waitUntil>published</waitUntil>
+                        <excludeArtifacts>
+                            <excludeArtifact>grid-settlement-demo</excludeArtifact>
+                        </excludeArtifacts>
                     </configuration>
                 </plugin>
             </plugins>
