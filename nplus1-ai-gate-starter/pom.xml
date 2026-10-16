@@ -16,6 +16,10 @@
     <name>nplus1-ai-gate-starter</name>
     <description>Reusable Spring Boot test starter for Hibernate N+1 detection and AI-assisted remediation</description>
 
+    <properties>
+        <maven.deploy.skip>false</maven.deploy.skip>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>

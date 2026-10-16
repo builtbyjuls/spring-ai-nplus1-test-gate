@@ -146,9 +146,27 @@ export GEMINI_API_KEY="your-api-key-here"
 
 ### Usage in Your Own Project
 
-#### 1. Zero-Touch Auto-Registration (Default)
+#### 1. Add Test Dependency
 
-Simply add `nplus1-ai-gate-starter` to your test dependencies. The gate is automatically registered across all Spring Boot tests (`@SpringBootTest` and `@DataJpaTest`) with zero test code changes required:
+Add `nplus1-ai-gate-starter` to your test classpath:
+
+```xml
+<dependency>
+    <groupId>com.builtbyjuls</groupId>
+    <artifactId>nplus1-ai-gate-starter</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <scope>test</scope>
+</dependency>
+```
+
+Or with Gradle:
+```groovy
+testImplementation 'com.builtbyjuls:nplus1-ai-gate-starter:0.0.1-SNAPSHOT'
+```
+
+#### 2. Zero-Touch Auto-Registration (Default)
+
+The gate is automatically registered across all Spring Boot tests (`@SpringBootTest` and `@DataJpaTest`) with zero test code changes required:
 
 ```java
 @SpringBootTest
@@ -165,7 +183,7 @@ class GridDailySettlementServiceTest {
 }
 ```
 
-#### 2. Configuration Properties
+#### 3. Configuration Properties
 
 Configure gate behavior globally in `src/test/resources/application.properties`:
 
@@ -195,7 +213,7 @@ nplus1.gate.baseline-file=nplus1-baseline.json
 nplus1.gate.generate-baseline=false
 ```
 
-#### 3. Per-Test Overrides (Optional `@EnableNPlusOneAiGate`)
+#### 4. Per-Test Overrides (Optional `@EnableNPlusOneAiGate`)
 
 Use `@EnableNPlusOneAiGate` when a specific test class requires custom overrides or temporary opt-out:
 
@@ -216,7 +234,7 @@ class LegacyReportOnlyTest { ... }
 class LegacyBatchTest { ... }
 ```
 
-#### 4. Baseline Suppression & Legacy Exemption
+#### 5. Baseline Suppression & Legacy Exemption
 
 Legacy codebases often contain dozens of pre-existing N+1 queries. To prevent blocking feature development while preventing new regressions, the gate supports baseline files and targeted exemptions:
 
