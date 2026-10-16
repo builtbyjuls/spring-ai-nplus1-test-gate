@@ -1,5 +1,6 @@
 package com.builtbyjuls.gate.config;
 
+import com.builtbyjuls.gate.baseline.NPlusOneBaselineService;
 import com.builtbyjuls.gate.interceptor.NPlusOneQueryExecutionListener;
 import com.builtbyjuls.gate.report.NPlusOneReportExporter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -37,4 +38,11 @@ public class NPlusOneGateAutoConfiguration {
     public NPlusOneReportExporter nPlusOneReportExporter() {
         return new NPlusOneReportExporter();
     }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public NPlusOneBaselineService nPlusOneBaselineService() {
+        return new NPlusOneBaselineService();
+    }
 }
+

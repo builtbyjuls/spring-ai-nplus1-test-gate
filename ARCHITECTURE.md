@@ -249,6 +249,24 @@ When a violation is detected (in either `FAIL` or `WARN` mode), `NPlusOneReportE
 
 In GitHub Actions workflows, the Markdown report is appended to `$GITHUB_STEP_SUMMARY` and all report files are archived via `actions/upload-artifact@v4` with `if: always()`, providing immediate visibility in pull requests without console log parsing.
 
+### 3.9 Baseline Suppression & Legacy Triage
+
+Legacy test suites frequently contain pre-existing N+1 queries that cannot be refactored immediately. The starter provides two complementary mechanisms to prevent blocking ongoing feature delivery while strictly barring new regressions:
+
+1. **Targeted `@IgnoreNPlusOne` Annotation**:
+   * Placed on test methods or test classes with a mandatory `reason` attribute:
+     ```java
+     @Test
+     @IgnoreNPlusOne(reason = "DEBT-412: Deferred refactor of participant summary until Q4")
+     void testLegacyParticipantSummary() { ... }
+     ```
+   * The listener logs the suppression, exports the finding with status `SUPPRESSED`, and suppresses the `AssertionError`.
+
+2. **Persistent Baseline File (`nplus1-baseline.json`)**:
+   * Configured via `nplus1.gate.baseline-file` (default: `"nplus1-baseline.json"`).
+   * **Line-Number Insensitive Matching**: Matches violations by 64-character SHA-256 fingerprint (`FingerprintCacheKey.compute`) or normalized call site where `:line_number` is stripped via `NPlusOneBaselineService.sanitizeCallSite`. This prevents cosmetic refactors, imports, or whitespace changes from invalidating baseline entries.
+   * **One-Shot Generation**: Running tests with `nplus1.gate.generate-baseline=true` (`-Dnplus1.gate.generate-baseline=true`) records all detected violations to `nplus1-baseline.json` and passes the test suite. Subsequent CI runs enforce the baseline: existing queries pass with `SUPPRESSED` status, while new N+1 regressions immediately fail.
+
 ---
 
 ## 4. Reference Domain (`grid-settlement-demo`)
@@ -313,4 +331,5 @@ Wholesale electricity markets settle energy across **288 five-minute dispatch in
 | **Small-Table `EXPLAIN`** | **JDBC `Savepoint`** + **`enable_seqscan = off`** | Unscoped **`EXPLAIN (FORMAT JSON)`** | **Why**: Prevents **PostgreSQL** from choosing **`Seq Scan`** on tiny 20-row test tables (which tricks the **LLM** into blaming missing indexes) and prevents transaction abortion (`25P02`).<br><br>**Trade-off**: Adds savepoint overhead on failed tests. |
 | **Test Registration** | **Zero-touch auto-registration** via `spring.factories` + slice imports | Mandatory test annotations on every test class | **Why**: Protects all `@SpringBootTest` and `@DataJpaTest` suites without developer friction, while preserving per-test override capability via `@EnableNPlusOneAiGate`.<br><br>**Trade-off**: Requires explicit `nplus1.gate.enabled=false` or `@EnableNPlusOneAiGate(enabled = false)` to opt out legacy tests. |
 | **CI/CD Reporting** | **Dual JSON + Markdown Export** (`target/nplus1-reports/`) | Raw console log scraping | **Why**: Enables native GitHub Actions step summaries, PR bot comments, and structured telemetry dashboards without parsing console text.<br><br>**Trade-off**: Requires writing files to the build output directory on violations. |
+| **Baseline Suppression** | **Line-Number Insensitive Matching** (`sanitizeCallSite` + SHA-256 fingerprint) | Strict line-number hashing | **Why**: Prevents cosmetic refactors, imports, or whitespace changes in test or service classes from breaking existing baseline exemptions, while strictly preventing new N+1 regressions.<br><br>**Trade-off**: Two distinct queries called from the exact same method signature share suppression scope if fingerprints match. |
 

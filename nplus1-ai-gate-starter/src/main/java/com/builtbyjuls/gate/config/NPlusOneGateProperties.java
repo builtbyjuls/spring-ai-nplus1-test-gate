@@ -43,6 +43,32 @@ public class NPlusOneGateProperties {
      */
     private String reportOutputDir = "target/nplus1-reports";
 
+    /**
+     * File path to the baseline definitions file (default: "nplus1-baseline.json").
+     */
+    private String baselineFile = "nplus1-baseline.json";
+
+    /**
+     * Whether to generate or update the baseline file during test execution (default: false).
+     */
+    private boolean generateBaseline = false;
+
+    public String getBaselineFile() {
+        return baselineFile;
+    }
+
+    public void setBaselineFile(String baselineFile) {
+        this.baselineFile = baselineFile;
+    }
+
+    public boolean isGenerateBaseline() {
+        return generateBaseline;
+    }
+
+    public void setGenerateBaseline(boolean generateBaseline) {
+        this.generateBaseline = generateBaseline;
+    }
+
     public GateMode getMode() {
         return mode;
     }

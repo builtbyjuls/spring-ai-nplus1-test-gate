@@ -19,6 +19,26 @@ public record NPlusOneFinding(
         String explainPlan,
         String diagnosis,
         String recommendedFix,
-        Instant timestamp
+        Instant timestamp,
+        boolean baselineSuppressed,
+        String suppressionReason
 ) {
+
+    public NPlusOneFinding(
+            String testClass,
+            String testMethod,
+            GateMode mode,
+            int repeatedQueryCount,
+            int threshold,
+            String parentQuery,
+            String childCallSite,
+            String offendingSql,
+            String explainPlan,
+            String diagnosis,
+            String recommendedFix,
+            Instant timestamp
+    ) {
+        this(testClass, testMethod, mode, repeatedQueryCount, threshold, parentQuery, childCallSite,
+                offendingSql, explainPlan, diagnosis, recommendedFix, timestamp, false, null);
+    }
 }

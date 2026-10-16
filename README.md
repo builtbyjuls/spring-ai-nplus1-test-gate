@@ -187,6 +187,12 @@ nplus1.gate.report-enabled=true
 
 # Directory for exported diagnostic reports (default: target/nplus1-reports)
 nplus1.gate.report-output-dir=target/nplus1-reports
+
+# Baseline suppression file path (default: nplus1-baseline.json)
+nplus1.gate.baseline-file=nplus1-baseline.json
+
+# Record violations to baseline file without failing tests (default: false)
+nplus1.gate.generate-baseline=false
 ```
 
 #### 3. Per-Test Overrides (Optional `@EnableNPlusOneAiGate`)
@@ -208,6 +214,32 @@ class LegacyReportOnlyTest { ... }
 @SpringBootTest
 @EnableNPlusOneAiGate(enabled = false)
 class LegacyBatchTest { ... }
+```
+
+#### 4. Baseline Suppression & Legacy Exemption
+
+Legacy codebases often contain dozens of pre-existing N+1 queries. To prevent blocking feature development while preventing new regressions, the gate supports baseline files and targeted exemptions:
+
+##### A. One-Shot Baseline Generation
+
+Run your test suite once with baseline generation enabled to record all pre-existing N+1 queries:
+
+```bash
+./mvnw test -Dnplus1.gate.generate-baseline=true
+```
+
+This creates `nplus1-baseline.json` in your project root and passes all tests. On subsequent runs, pre-existing queries are recorded as `SUPPRESSED` in reports without failing tests. Any new N+1 query regression immediately fails the build.
+
+##### B. Targeted `@IgnoreNPlusOne` Annotation
+
+Exempt specific legacy test methods or classes with a mandatory audit reason:
+
+```java
+@Test
+@IgnoreNPlusOne(reason = "DEBT-412: Deferred refactor of participant summary until Q4")
+void testLegacyParticipantSummary() {
+    settlementService.buildParticipantSummary(LocalDate.of(2026, 10, 15));
+}
 ```
 
 ### Pluggable AI Model Providers

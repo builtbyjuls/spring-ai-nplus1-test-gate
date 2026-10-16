@@ -392,6 +392,149 @@ class NPlusOneTestExecutionListenerTest {
         assertThat(java.nio.file.Files.exists(tempDir.resolve("summary.md"))).isFalse();
     }
 
+    @Test
+    @DisplayName("Should suppress failure when test method is annotated with @IgnoreNPlusOne")
+    void shouldSuppressFailureWhenMethodAnnotatedWithIgnoreNPlusOne() throws Exception {
+        TestContext testContext = mock(TestContext.class);
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(MethodIgnoredTestClass.class).when(testContext).getTestClass();
+        java.lang.reflect.Method testMethod = MethodIgnoredTestClass.class.getDeclaredMethod("exemptedMethod");
+        when(testContext.getTestMethod()).thenReturn(testMethod);
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        // Should not throw AssertionError due to @IgnoreNPlusOne
+        listener.afterTestMethod(testContext);
+        assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should suppress failure when test class is annotated with @IgnoreNPlusOne")
+    void shouldSuppressFailureWhenClassAnnotatedWithIgnoreNPlusOne() throws Exception {
+        TestContext testContext = mock(TestContext.class);
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(ClassIgnoredTestClass.class).when(testContext).getTestClass();
+        java.lang.reflect.Method testMethod = ClassIgnoredTestClass.class.getDeclaredMethod("normalMethod");
+        when(testContext.getTestMethod()).thenReturn(testMethod);
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        // Should not throw AssertionError due to class-level @IgnoreNPlusOne
+        listener.afterTestMethod(testContext);
+        assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should suppress failure when violation matches baseline entry")
+    void shouldSuppressFailureWhenMatchingBaselineEntry(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+        java.nio.file.Path baselineFile = tempDir.resolve("nplus1-baseline.json");
+        com.builtbyjuls.gate.baseline.NPlusOneBaselineService baselineService = new com.builtbyjuls.gate.baseline.NPlusOneBaselineService();
+        baselineService.recordBaseline(new com.builtbyjuls.gate.baseline.NPlusOneBaselineEntry(
+                SampleTestClass.class.getName(),
+                "sampleMethod",
+                "Unknown",
+                "com.example.service.OrderService.getOrder(OrderService.java:25)",
+                "fp-placeholder",
+                java.time.Instant.now().toString()
+        ), baselineFile.toString());
+
+        TestContext testContext = mock(TestContext.class);
+        org.springframework.context.ApplicationContext appContext = mock(org.springframework.context.ApplicationContext.class);
+        org.springframework.core.env.Environment env = mock(org.springframework.core.env.Environment.class);
+        when(testContext.getApplicationContext()).thenReturn(appContext);
+        when(appContext.getEnvironment()).thenReturn(env);
+        when(env.getProperty("nplus1.gate.enabled", Boolean.class, true)).thenReturn(true);
+        when(env.getProperty("nplus1.gate.baseline-file")).thenReturn(baselineFile.toString());
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(SampleTestClass.class).when(testContext).getTestClass();
+        java.lang.reflect.Method testMethod = SampleTestClass.class.getDeclaredMethod("sampleMethod");
+        when(testContext.getTestMethod()).thenReturn(testMethod);
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        // Matches baseline: does not throw AssertionError
+        listener.afterTestMethod(testContext);
+        assertThat(NPlusOneGateScope.getRecordedQueries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should generate baseline entry when generate-baseline is true")
+    void shouldGenerateBaselineEntryWhenGenerateBaselineIsTrue(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+        java.nio.file.Path baselineFile = tempDir.resolve("generated-baseline.json");
+
+        TestContext testContext = mock(TestContext.class);
+        org.springframework.context.ApplicationContext appContext = mock(org.springframework.context.ApplicationContext.class);
+        org.springframework.core.env.Environment env = mock(org.springframework.core.env.Environment.class);
+        when(testContext.getApplicationContext()).thenReturn(appContext);
+        when(appContext.getEnvironment()).thenReturn(env);
+        when(env.getProperty("nplus1.gate.enabled", Boolean.class, true)).thenReturn(true);
+        when(env.getProperty("nplus1.gate.generate-baseline", Boolean.class, false)).thenReturn(true);
+        when(env.getProperty("nplus1.gate.baseline-file")).thenReturn(baselineFile.toString());
+        when(testContext.getTestException()).thenReturn(null);
+        doReturn(SampleTestClass.class).when(testContext).getTestClass();
+        java.lang.reflect.Method testMethod = SampleTestClass.class.getDeclaredMethod("sampleMethod");
+        when(testContext.getTestMethod()).thenReturn(testMethod);
+
+        StackTraceElement frame = new StackTraceElement("com.example.service.OrderService", "getOrder", "OrderService.java", 25);
+        for (int i = 0; i < 5; i++) {
+            NPlusOneGateScope.record(new RecordedQuery(
+                    "SELECT * FROM customer WHERE id = ?",
+                    List.of(),
+                    List.of(frame),
+                    false,
+                    Instant.now()
+            ));
+        }
+
+        // Generating baseline suppresses assertion failure and writes baseline file
+        listener.afterTestMethod(testContext);
+        assertThat(java.nio.file.Files.exists(baselineFile)).isTrue();
+        assertThat(java.nio.file.Files.readString(baselineFile))
+                .contains("SampleTestClass")
+                .contains("sampleMethod");
+    }
+
+    @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example")
+    private static class MethodIgnoredTestClass {
+        @com.builtbyjuls.gate.annotation.IgnoreNPlusOne(reason = "Known legacy batch method")
+        void exemptedMethod() {
+        }
+    }
+
+    @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example")
+    @com.builtbyjuls.gate.annotation.IgnoreNPlusOne(reason = "Known legacy test class")
+    private static class ClassIgnoredTestClass {
+        void normalMethod() {
+        }
+    }
+
     @EnableNPlusOneAiGate(threshold = 5, basePackage = "com.example")
     private static class SampleTestClass {
         void sampleMethod() {

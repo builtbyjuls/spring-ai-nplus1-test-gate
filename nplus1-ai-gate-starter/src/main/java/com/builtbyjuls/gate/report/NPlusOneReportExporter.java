@@ -80,12 +80,13 @@ public class NPlusOneReportExporter {
         for (NPlusOneFinding f : findings) {
             String shortClass = extractSimpleName(f.testClass());
             String fixSummary = escapeMarkdown(truncate(f.recommendedFix(), 60));
+            String status = f.baselineSuppressed() ? "SUPPRESSED" : f.mode().name();
             sb.append(String.format("| `%s` | `%s` | %d | %d | `%s` | %s |\n",
                     shortClass,
                     f.testMethod(),
                     f.repeatedQueryCount(),
                     f.threshold(),
-                    f.mode(),
+                    status,
                     fixSummary
             ));
         }
@@ -94,11 +95,14 @@ public class NPlusOneReportExporter {
 
         int index = 1;
         for (NPlusOneFinding f : findings) {
+            String status = f.baselineSuppressed()
+                    ? "SUPPRESSED: " + (f.suppressionReason() != null ? f.suppressionReason() : "Baseline")
+                    : f.mode().name();
             sb.append(String.format("### Finding %d: `%s.%s` (%s)\n\n",
                     index++,
                     extractSimpleName(f.testClass()),
                     f.testMethod(),
-                    f.mode()
+                    status
             ));
             sb.append(String.format("* **Repeated Queries**: %d (Threshold: %d)\n", f.repeatedQueryCount(), f.threshold()));
             sb.append(String.format("* **Parent Query (1)**: `%s`\n", f.parentQuery()));
