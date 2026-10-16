@@ -45,29 +45,38 @@ Standard Java SQL assertion libraries (`datasource-proxy`, `QuickPerf`) only cou
 ## Architecture Flow
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant Test as JUnit 5 Test (@DataJpaTest / @SpringBootTest)
-    participant Listener as NPlusOneTestExecutionListener (Order 4100)
-    participant Proxy as datasource-proxy (NPlusOneGateScope)
-    participant PG as PostgreSQL 16 (Testcontainers)
-    participant Cache as FingerprintCache (Redis / Local JSON)
-    participant AI as Spring AI (Gemini / OpenAI / Ollama)
-
-    Test->>Listener: beforeTestMethod() (After Spring Tx Starts)
-    Test->>Proxy: NPlusOneGateScope.reset() (Clears Arrange SQL)
-    Test->>Proxy: Execute Service Method (Triggers 1 + N SELECTs)
-    Proxy->>PG: Forward SQL & Capture ParameterSetOperations + StackWalker
-    Test->>Listener: afterTestMethod() (Before Spring Tx Rollback)
-    Listener->>PG: EntityManager.flush() + Savepoint + EXPLAIN (FORMAT JSON)
-    Listener->>Cache: Lookup SHA-256(SQL + Service + Repo + Entity)
-    alt Cache Miss & API Key Present
-        Listener->>AI: Send Pruned Context (<= 1,000 Tokens)
-        AI-->>Listener: Return NPlusOneDiagnosis Record
-        Listener->>Cache: Save Diagnosis
+flowchart TD
+    subgraph S1["1. Interception & Filtering"]
+        A["JUnit 5 Test Execution"] --> B["datasource-proxy Interception"]
+        B --> C["Filter Noise & False Positives"]
     end
-    Listener-->>Test: Throw AssertionError with Remediation Report
 
+    subgraph S2["2. Detection & Safe EXPLAIN"]
+        C --> D{"Repeated SELECTs >= Threshold?"}
+        D -- No --> PASS["Test Passes Cleanly"]
+        D -- Yes --> E["Parent-Child Query Correlation"]
+        E --> F["Rollback-Safe PostgreSQL EXPLAIN"]
+    end
+
+    subgraph S3["3. Cache & AI Diagnosis"]
+        F --> G["Compute SHA-256 Fingerprint"]
+        G --> H{"Cache Hit?"}
+        H -- Yes --> J["Retrieve Cached Diagnosis"]
+        H -- No --> K{"LLM Available?"}
+        K -- Yes --> L["Spring AI ChatClient (<= 1,000 Tokens)"]
+        K -- No --> M["Deterministic Offline Fallback"]
+        L --> N["Save Diagnosis to Cache"]
+        M --> N
+    end
+
+    subgraph S4["4. Reporting & Enforcement"]
+        J --> O["Format Diagnostic Report"]
+        N --> O
+        O --> P{"Enforcement Mode"}
+        P -- FAIL --> Q["Fail Test: [N+1 AI GATE FAILURE]"]
+        P -- WARN --> R["Pass Test: [N+1 AI GATE WARNING]"]
+        O --> S["Export report.json & summary.md"]
+    end
 ```
 
 ---
