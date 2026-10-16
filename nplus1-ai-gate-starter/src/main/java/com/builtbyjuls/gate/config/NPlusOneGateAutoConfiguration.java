@@ -3,11 +3,13 @@ package com.builtbyjuls.gate.config;
 import com.builtbyjuls.gate.baseline.NPlusOneBaselineService;
 import com.builtbyjuls.gate.interceptor.NPlusOneQueryExecutionListener;
 import com.builtbyjuls.gate.report.NPlusOneReportExporter;
+import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Role;
 
 import javax.sql.DataSource;
 
@@ -20,14 +22,16 @@ import javax.sql.DataSource;
 public class NPlusOneGateAutoConfiguration {
 
     @Bean
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     @ConditionalOnMissingBean
     public NPlusOneQueryExecutionListener nPlusOneQueryExecutionListener() {
         return new NPlusOneQueryExecutionListener();
     }
 
     @Bean
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     @ConditionalOnMissingBean
-    public NPlusOneDataSourceBeanPostProcessor nPlusOneDataSourceBeanPostProcessor(
+    public static NPlusOneDataSourceBeanPostProcessor nPlusOneDataSourceBeanPostProcessor(
             NPlusOneQueryExecutionListener nPlusOneQueryExecutionListener
     ) {
         return new NPlusOneDataSourceBeanPostProcessor(nPlusOneQueryExecutionListener);
